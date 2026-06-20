@@ -16,6 +16,8 @@ import { GameRelay } from "./relay.js";
 let currentUser = null;
 let activeLobby = null;
 let relay = null;
+let lobbyHeartbeatInterval = null;
+let gameStartTimeout = null;
 
 const gameState = {
   board: createBoard(),
@@ -358,7 +360,15 @@ function setupLobbyHandlers() {
           activeLobby = lobbyData;
           lobbyUI.quickPlayBtn.disabled = false;
           lobbyUI.quickPlayBtn.textContent = "PARTIDA RÁPIDA";
-          connectToGameRelay(lobbyData.roomCode, currentUser.username);
+          
+          // Only connect to relay if we are not already connected as Host
+          const isHost = lobbyData.hostUsername === currentUser.username;
+          if (!isHost) {
+            connectToGameRelay(lobbyData.roomCode, currentUser.username);
+          } else {
+            // Update waiting room UI with guest info
+            setupWaitingRoom(lobbyData);
+          }
         },
         // Waiting in lobby...
         (roomCode) => {
@@ -422,6 +432,24 @@ function updateLobbyProfileUI(userData) {
 }
 
 // 3. WAITING SCREEN LOGIC
+function startLobbyHeartbeat(roomCode) {
+  stopLobbyHeartbeat();
+  
+  // Immediately update heartbeat once
+  lobbySystem.updateHeartbeat(roomCode);
+  
+  lobbyHeartbeatInterval = setInterval(() => {
+    lobbySystem.updateHeartbeat(roomCode);
+  }, 10000); // 10 seconds
+}
+
+function stopLobbyHeartbeat() {
+  if (lobbyHeartbeatInterval) {
+    clearInterval(lobbyHeartbeatInterval);
+    lobbyHeartbeatInterval = null;
+  }
+}
+
 function setupWaitingRoom(lobbyData) {
   waitingUI.roomCodeVal.textContent = lobbyData.roomCode;
   waitingUI.hostName.textContent = `${lobbyData.hostUsername} (P1)`;
@@ -437,6 +465,9 @@ function setupWaitingRoom(lobbyData) {
     
     // Connect to WebSocket Relay room while waiting as Host
     connectToGameRelay(lobbyData.roomCode, currentUser.username);
+
+    // Start heartbeat updates to Firestore
+    startLobbyHeartbeat(lobbyData.roomCode);
   }
 }
 
@@ -451,6 +482,7 @@ function setupWaitingHandlers() {
 
   waitingUI.cancelBtn.addEventListener("click", async () => {
     audioSystem.playTap();
+    stopLobbyHeartbeat();
     if (activeLobby) {
       lobbySystem.cancelActiveLobbyListener();
       if (activeLobby.hostUsername === currentUser.username) {
@@ -493,7 +525,6 @@ function connectToGameRelay(roomCode, username) {
           // Host updates active lobby data
           activeLobby.guestUsername = user;
           setupWaitingRoom(activeLobby);
-          initiateGameStart();
         }
       } else if (action === "leave") {
         // Ignore our own leave system message (though we won't get it since we'd be closed)
@@ -515,7 +546,8 @@ function connectToGameRelay(roomCode, username) {
 
 // Host determines initial conditions and syncs them to Guest
 function initiateGameStart() {
-  if (gameState.isGameOver) return; // Prevent double trigger
+  if (gameStartTimeout) return; // Prevent double trigger
+  if (views.game.classList.contains("active")) return; // Game already in progress
   
   // Decide randomly who goes first
   const goesFirst = Math.random() < 0.5 ? activeLobby.hostUsername : activeLobby.guestUsername;
@@ -535,14 +567,20 @@ function initiateGameStart() {
   };
 
   // Send to guest
-  setTimeout(() => {
+  gameStartTimeout = setTimeout(() => {
     relay.send(initPayload);
     // Initialize our own local game state
     setupLocalGameState(initPayload);
+    gameStartTimeout = null;
   }, 1000); // Small timeout to ensure guest socket is ready
 }
 
 function setupLocalGameState(payload) {
+  stopLobbyHeartbeat();
+  if (gameStartTimeout) {
+    clearTimeout(gameStartTimeout);
+    gameStartTimeout = null;
+  }
   gameState.board = createBoard();
   gameState.p1Username = payload.hostUsername;
   gameState.p2Username = payload.guestUsername;

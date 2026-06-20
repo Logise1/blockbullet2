@@ -262,7 +262,21 @@ export const lobbySystem = {
       // Clean up previous lobby listeners if any
       this.cancelActiveLobbyListener();
 
-      // Look for a waiting lobby in the same mode
+      // 1. Clean up any existing lobbies hosted by this user to prevent stale/duplicate entries
+      const cleanupQuery = query(
+        collection(db, "lobbies"),
+        where("hostUid", "==", userStats.uid)
+      );
+      const cleanupSnapshot = await getDocs(cleanupQuery);
+      for (const oldDoc of cleanupSnapshot.docs) {
+        try {
+          await deleteDoc(oldDoc.ref);
+        } catch (err) {
+          console.error("Error cleaning up old lobby:", err);
+        }
+      }
+
+      // 2. Look for a waiting lobby in the same mode
       const q = query(
         collection(db, "lobbies"),
         where("mode", "==", mode),
@@ -271,19 +285,22 @@ export const lobbySystem = {
 
       const querySnapshot = await getDocs(q);
 
-      if (!querySnapshot.empty) {
+      // Filter out stale lobbies (no activity in last 30s) and our own just in case
+      const now = Date.now();
+      const activeLobbies = querySnapshot.docs
+        .map(doc => ({ id: doc.id, data: doc.data() }))
+        .filter(lobby => {
+          if (lobby.data.hostUid === userStats.uid) return false;
+          const lastActive = lobby.data.lastActive || lobby.data.createdAt || 0;
+          return (now - lastActive) < 30000; // 30 seconds
+        });
+
+      if (activeLobbies.length > 0) {
         // Sort in memory by createdAt ascending to avoid index requirements
-        const lobbies = querySnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
-        lobbies.sort((a, b) => (a.data.createdAt || 0) - (b.data.createdAt || 0));
+        activeLobbies.sort((a, b) => (a.data.createdAt || 0) - (b.data.createdAt || 0));
 
-        const lobbyDoc = lobbies[0];
+        const lobbyDoc = activeLobbies[0];
         const lobbyData = lobbyDoc.data;
-
-        if (lobbyData.hostUid === userStats.uid) {
-          // It's their own lobby from a previous connection. Re-listen to it.
-          this.listenToLobby(lobbyData.roomCode, onMatchFound, onWaiting);
-          return;
-        }
 
         const updatedData = {
           guestUid: userStats.uid,
@@ -297,7 +314,7 @@ export const lobbySystem = {
           ...updatedData
         });
       } else {
-        // No lobby found. Host a new game
+        // No active lobby found. Host a new game
         const lobbyData = await this.hostGame(userStats, mode);
         onWaiting(lobbyData.roomCode);
         
@@ -342,6 +359,17 @@ export const lobbySystem = {
       await deleteDoc(doc(db, "lobbies", roomCode));
     } catch (e) {
       console.error("Error closing lobby:", e);
+    }
+  },
+
+  // Update heartbeat for room
+  async updateHeartbeat(roomCode) {
+    if (!isFirebaseConfigured) return;
+    try {
+      const lobbyRef = doc(db, "lobbies", roomCode);
+      await updateDoc(lobbyRef, { lastActive: Date.now() });
+    } catch (e) {
+      console.error("Error updating heartbeat:", e);
     }
   }
 };

@@ -34,6 +34,9 @@ export class GameRelay {
     this.socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.username) {
+          data.username = decodeURIComponent(data.username);
+        }
         
         // 1. System messages
         if (data.type === "system") {
