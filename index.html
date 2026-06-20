@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Block Bullet - 2 Jugadores</title>
+  <!-- Google Sans / Product Sans Web Fonts -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mortezaom/google-sans-cdn@master/fonts.css">
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- Floating particles background -->
+  <div class="bg-effects">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+  </div>
+
+  <div class="app-container">
+    
+    <!-- 1. AUTH SCREEN -->
+    <section id="auth-view" class="view active">
+      <div class="brand-header">
+        <div class="animated-logo-blocks">
+          <div class="logo-block block-cyan"></div>
+          <div class="logo-block block-pink"></div>
+          <div class="logo-block block-yellow"></div>
+          <div class="logo-block block-green"></div>
+        </div>
+        <h1 class="logo-text">BLOCK<br><span class="accent-text">BULLET</span></h1>
+        <p class="subtitle">Duelo de Bloques Multijugador</p>
+      </div>
+
+      <div class="glass-card auth-card">
+        <h2 id="auth-title" class="card-title">Iniciar Sesión</h2>
+        
+        <div class="input-group">
+          <label for="auth-username">Nombre de Usuario</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="auth-username" placeholder="Ej: PlayerOne" autocomplete="off" maxlength="15">
+          </div>
+        </div>
+        
+        <div class="input-group">
+          <label for="auth-password">Contraseña</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres">
+          </div>
+        </div>
+
+        <button id="auth-submit-btn" class="btn primary-btn btn-glow">
+          <span>INGRESAR</span>
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+        
+        <div class="auth-toggle">
+          <p id="auth-toggle-msg">¿No tienes cuenta? <span id="auth-toggle-link">Regístrate</span></p>
+        </div>
+      </div>
+
+      <!-- Firebase Configuration Alert (shown if config is not updated) -->
+      <div id="fb-warning" class="warning-banner hidden">
+        <p>⚠️ <strong>Falta configuración de Firebase</strong></p>
+        <p>Por favor coloca tus credenciales en <code>config.js</code> para activar las cuentas y base de datos.</p>
+      </div>
+    </section>
+
+    <!-- 2. LOBBY SCREEN -->
+    <section id="lobby-view" class="view">
+      <!-- Top profile section (Gamified Header) -->
+      <div class="gamer-card glass-card">
+        <div class="gamer-profile">
+            <div class="avatar-container">
+              <div class="avatar-ring"></div>
+              <div class="avatar-emoji">
+                <svg class="avatar-crest-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; color: var(--p1-cyan);">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5"/>
+                  <path d="M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+            </div>
+            <div class="gamer-info">
+              <h2 id="profile-name" class="profile-username">Cargando...</h2>
+              <div class="rank-badge">
+                <span id="profile-level">Rango: Recluta</span>
+              </div>
+            </div>
+            <div class="header-controls">
+              <button id="sound-toggle-btn" class="icon-btn" title="Silenciar Sonido">
+                <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                  <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+                  <path class="volume-waves" d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                </svg>
+              </button>
+            </div>
+        </div>
+        
+        <!-- Experience Level Bar -->
+        <div class="xp-container">
+          <div class="xp-label-row">
+            <span class="xp-level-text" id="gamer-level-num">NIVEL 1</span>
+            <span class="xp-progress-text" id="gamer-xp-text">0/3 Victorias</span>
+          </div>
+          <div class="xp-bar-bg">
+            <div class="xp-bar-fill" id="gamer-xp-fill" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Stats Grid (Trophy & Medal SVG icons) -->
+      <div class="lobby-stats-container">
+        <div class="lobby-stat-card glass-card stat-high-score">
+          <div class="stat-icon-wrapper gold-glow">
+            <svg class="stat-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a4 4 0 0 1 4 4v7.5a4 4 0 0 1-4 4 4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z"/></svg>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-value" id="stat-high-score">0</span>
+            <span class="stat-label">Mejor Puntuación</span>
+          </div>
+        </div>
+
+        <div class="lobby-stat-card glass-card stat-total-wins">
+          <div class="stat-icon-wrapper cyan-glow">
+            <svg class="stat-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          </div>
+          <div class="stat-card-info">
+            <span class="stat-value" id="stat-total-wins">0</span>
+            <span class="stat-label">Victorias Totales</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Duel Stats History -->
+      <div class="history-panel glass-card">
+        <h3 class="panel-section-title">Historial de Duelos</h3>
+        
+        <div class="mode-history-row">
+          <div class="mode-history-header">
+            <span class="history-mode-title">
+              <svg class="history-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--combo-gold);">
+                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              </svg>Modo Puntaje
+            </span>
+            <span class="history-mode-plays"><span id="stat-played-score">0</span> partidas</span>
+          </div>
+          <div class="history-win-loss-bar">
+            <div class="win-tag">W: <span id="stat-wins-score">0</span></div>
+            <div class="loss-tag">L: <span id="stat-losses-score">0</span></div>
+          </div>
+        </div>
+
+        <div class="mode-history-row">
+          <div class="mode-history-header">
+            <span class="history-mode-title">
+              <svg class="history-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--p2-pink);">
+                <path d="M4 10a8 8 0 0 1 16 0c0 4.5-3.5 7-3.5 7H7.5S4 14.5 4 10z"/>
+                <path d="M8 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM16 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+                <path d="M12 14v3"/>
+                <path d="M10 20h4"/>
+              </svg>Muerte Súbita
+            </span>
+            <span class="history-mode-plays"><span id="stat-played-sudden">0</span> partidas</span>
+          </div>
+          <div class="history-win-loss-bar">
+            <div class="win-tag">W: <span id="stat-wins-sudden">0</span></div>
+            <div class="loss-tag">L: <span id="stat-losses-sudden">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Mode Selection (Segmented Pill Switch) -->
+      <div class="mode-selection-container">
+        <h3 class="panel-section-title">Selecciona el Modo</h3>
+        <div class="mode-slider-tabs">
+          <button class="mode-tab mode-slide-btn active" data-mode="score">
+            <svg class="mode-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; margin-right: 6px;">
+              <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            </svg>
+            <span class="mode-tab-title">PUNTAJE</span>
+          </button>
+          <button class="mode-tab mode-slide-btn" data-mode="sudden_death">
+            <svg class="mode-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px; margin-right: 6px;">
+              <path d="M4 10a8 8 0 0 1 16 0c0 4.5-3.5 7-3.5 7H7.5S4 14.5 4 10z"/>
+              <path d="M8 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM16 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
+              <path d="M12 14v3"/>
+              <path d="M10 20h4"/>
+            </svg>
+            <span class="mode-tab-title">SÚBITA</span>
+          </button>
+        </div>
+        <div id="mode-detail-desc" class="mode-description-box glass-card">
+          Consigue puntos limpiando líneas. Si mueres, gana el que tenga más puntos.
+        </div>
+      </div>
+
+      <!-- Action Buttons (Modern Glow) -->
+      <div class="lobby-actions">
+        <button id="quick-play-btn" class="btn primary-btn premium-glow-btn">PARTIDA RÁPIDA</button>
+        
+        <div class="code-actions">
+          <button id="host-game-btn" class="btn outline-btn">CREAR SALA</button>
+          <button id="join-game-btn" class="btn outline-btn">UNIRSE A SALA</button>
+        </div>
+      </div>
+
+      <!-- Join with Code Form (hidden by default) -->
+      <div id="join-code-panel" class="join-code-popup hidden glass-card">
+        <h3>Unirse con Código</h3>
+        <input type="text" id="join-code-input" placeholder="Código de 5 letras" maxlength="5" autocomplete="off">
+        <div class="popup-buttons">
+          <button id="join-code-cancel" class="btn text-btn">Cancelar</button>
+          <button id="join-code-confirm" class="btn primary-btn">UNIRSE</button>
+        </div>
+      </div>
+
+      <button id="lobby-logout-btn" class="btn text-btn logout-link">Cerrar Sesión</button>
+    </section>
+
+    <!-- 3. WAITING SCREEN -->
+    <section id="waiting-view" class="view">
+      <div class="glass-card waiting-card">
+        <h2>Sala de Espera</h2>
+        <p class="waiting-subtitle">Comparte este código con tu oponente para jugar</p>
+        
+        <div class="room-code-display">
+          <span id="room-code-val">-----</span>
+          <button id="copy-code-btn" class="icon-btn" title="Copiar Código">
+            <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="players-lobby-list">
+          <div class="lobby-player-row host-row">
+            <span class="player-dot dot-online"></span>
+            <span id="lobby-host-name">Jugador 1 (Anfitrión)</span>
+            <span class="player-role-badge">P1</span>
+          </div>
+          <div class="lobby-player-row guest-row">
+            <span id="lobby-guest-dot" class="player-dot dot-offline"></span>
+            <span id="lobby-guest-name">Esperando oponente...</span>
+            <span class="player-role-badge">P2</span>
+          </div>
+        </div>
+
+        <div class="waiting-loader">
+          <div class="loader-pulse"></div>
+          <p id="waiting-status-text">Buscando oponente en el servidor...</p>
+        </div>
+
+        <button id="cancel-waiting-btn" class="btn outline-btn">Salir de la Sala</button>
+      </div>
+    </section>
+
+    <!-- 4. GAME SCREEN -->
+    <section id="game-view" class="view">
+      <!-- Game HUD -->
+      <div class="game-hud glass-card">
+        <!-- Player 1 (Left) -->
+        <div class="hud-player" id="hud-p1">
+          <div class="hud-player-name">Player 1</div>
+          <div class="hud-score-row">
+            <span class="hud-score-val" id="p1-score">0</span>
+            <span class="hud-streak-badge hidden" id="p1-streak">1 🔥</span>
+          </div>
+        </div>
+
+        <!-- VS & Turn Indicator (Center) -->
+        <div class="hud-center">
+          <span id="game-mode-badge" class="mode-badge">Puntaje</span>
+          <div id="turn-indicator" class="turn-badge your-turn">TU TURNO</div>
+        </div>
+
+        <!-- Player 2 (Right) -->
+        <div class="hud-player" id="hud-p2">
+          <div class="hud-player-name">Player 2</div>
+          <div class="hud-score-row">
+            <span class="hud-score-val" id="p2-score">0</span>
+            <span class="hud-streak-badge hidden" id="p2-streak">1 🔥</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Game Board container -->
+      <div class="board-container">
+        <!-- Text Alert Notification Layer (Combos, Streaks) -->
+        <div id="game-alerts" class="game-alerts-layer"></div>
+        
+        <div id="game-board" class="game-board">
+          <!-- 64 cells populated via JS -->
+        </div>
+      </div>
+
+      <!-- Piece Trays Section -->
+      <div class="trays-section">
+        <!-- Your draggable pieces -->
+        <div class="tray-container active-tray">
+          <span class="tray-label">TUS PIEZAS</span>
+          <div class="piece-tray" id="your-piece-tray">
+            <div class="piece-slot" id="my-slot-0"></div>
+            <div class="piece-slot" id="my-slot-1"></div>
+            <div class="piece-slot" id="my-slot-2"></div>
+          </div>
+        </div>
+
+
+      </div>
+
+      <!-- Floating Emoji Reactions Panel -->
+      <div class="reactions-panel glass-card">
+        <button id="reaction-toggle" class="reaction-btn" title="Reacciones">
+          <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--text-secondary);">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+          </svg>
+        </button>
+        <div class="reaction-options hidden" id="reaction-options">
+          <button class="emoji-react-btn" data-emoji="😂">😂</button>
+          <button class="emoji-react-btn" data-emoji="😮">😮</button>
+          <button class="emoji-react-btn" data-emoji="😢">😢</button>
+          <button class="emoji-react-btn" data-emoji="👍">👍</button>
+          <button class="emoji-react-btn" data-emoji="🔥">🔥</button>
+          <button class="emoji-react-btn" data-emoji="👑">👑</button>
+        </div>
+      </div>
+      
+      <!-- Flying emoji container -->
+      <div class="emoji-flight-container" id="emoji-flight-container"></div>
+    </section>
+
+  </div>
+
+  <!-- 5. GAME OVER MODAL -->
+  <div id="gameover-modal" class="modal hidden">
+    <div class="modal-content glass-card scale-up">
+      <div class="modal-glow-bg"></div>
+      <h1 id="gameover-result-title" class="outcome-title">¡VICTORIA!</h1>
+      <p id="gameover-reason" class="outcome-subtitle">El oponente se quedó sin movimientos.</p>
+
+      <div class="score-comparison">
+        <div class="score-card">
+          <span class="player-name" id="go-p1-name">Tú</span>
+          <span class="player-final-score" id="go-p1-score">0</span>
+        </div>
+        <div class="vs-text">VS</div>
+        <div class="score-card">
+          <span class="player-name" id="go-p2-name">Oponente</span>
+          <span class="player-final-score" id="go-p2-score">0</span>
+        </div>
+      </div>
+
+      <div class="rematch-section">
+        <button id="rematch-btn" class="btn primary-btn btn-glow">JUGAR DE NUEVO</button>
+        <p id="rematch-status" class="rematch-status-msg"></p>
+      </div>
+
+      <button id="gameover-menu-btn" class="btn outline-btn">Volver al Menú</button>
+    </div>
+  </div>
+
+  <!-- Load script files as ES Modules -->
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
