@@ -21,6 +21,8 @@ let gameStartTimeout = null;
 let sentInviteId = null;
 let sentInviteUnsubscribe = null;
 let incomingInvitesUnsubscribe = null;
+let tickerInterval = null;
+let deferredPrompt = null;
 
 const gameState = {
   board: createBoard(),
@@ -176,9 +178,13 @@ window.addEventListener("DOMContentLoaded", () => {
       
       // Render friends list
       renderFriendsList();
+
+      // Start global PP leaderboard scroller
+      startTickerTimer();
     } else {
       currentUser = null;
       stopIncomingInvitesListener();
+      stopTickerTimer();
       switchView("auth-view");
     }
   });
@@ -381,7 +387,7 @@ function setupLobbyHandlers() {
 }
 
 function updateLobbyProfileUI(userData) {
-  lobbyUI.profileName.textContent = userData.username;
+  lobbyUI.profileName.textContent = `${userData.username} (${userData.pp || 1000} PP)`;
   
   // Calculate a mock Rank Level based on total wins
   const wins = userData.totalWins || 0;
@@ -499,10 +505,11 @@ function connectToGameRelay(roomCode, username) {
   relay.connect(roomCode, username, {
     onConnect: () => {
       console.log("[App] WebSocket connected.");
-      // Send ready handshake
+      // Send ready handshake with our current PP
       relay.send({
         action: "client_ready",
-        username: currentUser.username
+        username: currentUser.username,
+        pp: currentUser.pp || 1000
       });
     },
     onSystem: (action, user, message) => {
@@ -554,7 +561,9 @@ function initiateGameStart() {
     guestUsername: activeLobby.guestUsername,
     turn: goesFirst,
     p1Pieces: p1Initial,
-    p2Pieces: p2Initial
+    p2Pieces: p2Initial,
+    hostPP: activeLobby.hostPP || currentUser.pp || 1000,
+    guestPP: activeLobby.guestPP || 1000
   };
 
   // Send to guest
@@ -590,6 +599,9 @@ function setupLocalGameState(payload) {
   // Determine our role
   gameState.playerRole = (currentUser.username === gameState.p1Username) ? "host" : "guest";
 
+  // Store opponent PP
+  gameState.opponentPP = (gameState.playerRole === "host") ? payload.guestPP : payload.hostPP;
+
   // Hide Waiting room / game over screen & enter Game view
   switchView("game-view");
   
@@ -610,15 +622,22 @@ function handleIncomingGameAction(sender, payload) {
       if (isHost) {
         if (sender !== currentUser.username) {
           console.log(`[App] Guest "${sender}" is ready. Starting game...`);
+          if (activeLobby) {
+            activeLobby.guestPP = payload.pp || 1000;
+          }
           initiateGameStart();
         }
       } else {
         // If we are Guest, and we receive Host's ready, send ready back to confirm handshake
         if (sender !== currentUser.username) {
           console.log(`[App] Host "${sender}" is ready. Confirming ready...`);
+          if (activeLobby) {
+            activeLobby.hostPP = payload.pp || 1000;
+          }
           relay.send({
             action: "client_ready",
-            username: currentUser.username
+            username: currentUser.username,
+            pp: currentUser.pp || 1000
           });
         }
       }
@@ -1276,6 +1295,37 @@ async function triggerGameOver(winner, loser, reason) {
   // Play result sound
   audioSystem.playGameOver(isWinner && !isDraw);
 
+  // Calculate new Elo PP
+  let newPP = currentUser.pp || 1000;
+  let ppChange = 0;
+  
+  try {
+    const myPP = currentUser.pp || 1000;
+    const opponentPP = gameState.opponentPP || 1000;
+    
+    // Expected result
+    const expected = 1 / (1 + Math.pow(10, (opponentPP - myPP) / 400));
+    
+    let actual = 0.5; // Draw
+    if (isWinner && !isDraw) {
+      actual = 1;
+    } else if (!isWinner && !isDraw) {
+      actual = 0;
+    }
+    
+    const K = 32;
+    ppChange = Math.round(K * (actual - expected));
+    newPP = Math.max(0, myPP + ppChange);
+    
+    console.log(`[Elo] My PP: ${myPP}, Opponent PP: ${opponentPP}, Expected: ${expected}, Actual: ${actual}, Change: ${ppChange}, New PP: ${newPP}`);
+    
+    // Append Elo change text to game over reason
+    const changeSign = ppChange >= 0 ? "+" : "";
+    gameoverUI.reason.innerHTML += `<br><span style="color: ${ppChange >= 0 ? 'var(--cyber-green)' : 'var(--p2-pink)'}; font-weight: 800; font-size: 0.9rem;">PP: ${currentUser.pp || 1000} → ${newPP} (${changeSign}${ppChange})</span>`;
+  } catch (err) {
+    console.error("Error calculating Elo:", err);
+  }
+
   // Write stats to Firestore database
   try {
     const finalScore = (gameState.playerRole === "host") ? gameState.p1Score : gameState.p2Score;
@@ -1283,13 +1333,16 @@ async function triggerGameOver(winner, loser, reason) {
       currentUser.uid,
       gameState.mode,
       isWinner && !isDraw,
-      gameState.mode === "score" ? finalScore : null
+      gameState.mode === "score" ? finalScore : null,
+      newPP
     );
     // Refresh local cache stats
     const updatedStats = await authSystem.getUserStats(currentUser.uid);
     if (updatedStats) {
       currentUser = updatedStats;
       updateLobbyProfileUI(updatedStats);
+      renderFriendsList();
+      updatePPTicker();
     }
   } catch (error) {
     console.error("Failed to write game over statistics:", error);
@@ -1592,7 +1645,7 @@ function cleanupSentInviteListener() {
   }
 }
 
-function renderFriendsList() {
+async function renderFriendsList() {
   if (!currentUser) return;
   const listEl = lobbyUI.friendsList;
   if (!listEl) return;
@@ -1604,13 +1657,37 @@ function renderFriendsList() {
     return;
   }
   
-  friends.forEach((friendName) => {
+  listEl.innerHTML = '<div class="friends-empty-msg">Cargando amigos...</div>';
+  
+  try {
+    const details = await authSystem.getFriendsDetails(friends);
+    listEl.innerHTML = "";
+    
+    if (details.length === 0) {
+      friends.forEach((friendName) => {
+        renderFriendRow(friendName, 1000);
+      });
+      return;
+    }
+    
+    details.forEach((friendData) => {
+      renderFriendRow(friendData.username, friendData.pp || 1000);
+    });
+  } catch (err) {
+    console.error("Error loading friends details:", err);
+    listEl.innerHTML = "";
+    friends.forEach((friendName) => {
+      renderFriendRow(friendName, 1000);
+    });
+  }
+  
+  function renderFriendRow(friendName, pp) {
     const row = document.createElement("div");
     row.className = "friend-row";
     row.innerHTML = `
       <div class="friend-info">
         <span class="friend-status-dot online"></span>
-        <span class="friend-name">${friendName}</span>
+        <span class="friend-name">${friendName} (${pp} PP)</span>
       </div>
       <div class="friend-actions">
         <button class="friend-btn friend-btn-invite" data-username="${friendName}">Invitar</button>
@@ -1639,5 +1716,110 @@ function renderFriendsList() {
     });
     
     listEl.appendChild(row);
-  });
+  }
 }
+
+// 10. PP TICKER SCROLLER FUNCTIONS
+
+async function updatePPTicker() {
+  if (!currentUser) return;
+  try {
+    const topPlayers = await authSystem.getTopPlayers();
+    const tickerEl = document.getElementById("global-pp-ticker");
+    if (!tickerEl) return;
+    
+    if (topPlayers.length === 0) {
+      tickerEl.innerHTML = `
+        <div class="ticker-title">PP RANKING</div>
+        <div class="ticker-wrap">
+          <div class="ticker-move">
+            <span class="ticker-text">No hay clasificaciones disponibles.</span>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    
+    const tickerText = topPlayers.map((p, idx) => `${idx + 1}. ${p.username} (${p.pp || 1000} PP)`).join("   •   ");
+    
+    tickerEl.innerHTML = `
+      <div class="ticker-title">PP RANKING</div>
+      <div class="ticker-wrap">
+        <div class="ticker-move">
+          <span class="ticker-text">${tickerText}</span>
+          <span class="ticker-text">${tickerText}</span>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    console.error("Error updating ticker:", err);
+  }
+}
+
+function startTickerTimer() {
+  stopTickerTimer();
+  updatePPTicker();
+  tickerInterval = setInterval(updatePPTicker, 30000); // Refresh every 30s
+}
+
+function stopTickerTimer() {
+  if (tickerInterval) {
+    clearInterval(tickerInterval);
+    tickerInterval = null;
+  }
+}
+
+// 11. PWA INTEGRATION AND INSTALL PROMPT LOGIC
+
+// Listen to beforeinstallprompt event
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  
+  // Show the custom install banner
+  const banner = document.getElementById("pwa-install-banner");
+  if (banner) {
+    banner.classList.remove("hidden");
+  }
+});
+
+// Setup PWA install handlers and register service worker on load
+window.addEventListener("load", () => {
+  const acceptBtn = document.getElementById("pwa-install-accept");
+  const declineBtn = document.getElementById("pwa-install-decline");
+  const banner = document.getElementById("pwa-install-banner");
+
+  if (acceptBtn && declineBtn && banner) {
+    declineBtn.addEventListener("click", () => {
+      audioSystem.playTap();
+      banner.classList.add("hidden");
+    });
+
+    acceptBtn.addEventListener("click", async () => {
+      audioSystem.playTap();
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`[PWA] User response to install prompt: ${outcome}`);
+        deferredPrompt = null;
+      }
+      banner.classList.add("hidden");
+    });
+  }
+  
+  // Register Service Worker
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js")
+      .then((reg) => console.log("[PWA] Service Worker registered:", reg))
+      .catch((err) => console.error("[PWA] Service Worker registration failed:", err));
+  }
+});
+
+// Clear prompt if app is installed
+window.addEventListener("appinstalled", (evt) => {
+  console.log("[PWA] Block Bullet 2 has been installed.");
+  const banner = document.getElementById("pwa-install-banner");
+  if (banner) {
+    banner.classList.add("hidden");
+  }
+});

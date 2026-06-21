@@ -8,11 +8,33 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mortezaom/google-sans-cdn@master/fonts.css">
   <!-- Main Stylesheet -->
   <link rel="stylesheet" href="index.css">
+  
+  <!-- PWA Manifest & Meta Tags -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#00f5ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
 
   <!-- Floating invite notifications container -->
   <div id="invite-notification-container" class="invite-notification-container"></div>
+
+  <!-- PWA Install Banner -->
+  <div id="pwa-install-banner" class="pwa-install-banner hidden glass-card">
+    <div class="pwa-install-info">
+      <img src="icon.png" alt="Icon" class="pwa-install-icon">
+      <div class="pwa-install-text">
+        <strong>Block Bullet 2</strong>
+        <span>Juega en pantalla completa y con mejor rendimiento.</span>
+      </div>
+    </div>
+    <div class="pwa-install-actions">
+      <button id="pwa-install-decline" class="btn text-btn">Ahora no</button>
+      <button id="pwa-install-accept" class="btn primary-btn btn-glow">INSTALAR</button>
+    </div>
+  </div>
 
   <!-- Floating particles background -->
   <div class="bg-effects">
@@ -333,8 +355,17 @@
       </div>
       
       <!-- Flying emoji container -->
-      <div class="emoji-flight-container" id="emoji-flight-container"></div>
     </section>
+
+    <!-- Global PP Ranking Ticker -->
+    <div id="global-pp-ticker" class="pp-ticker-container">
+      <div class="ticker-title">PP RANKING</div>
+      <div class="ticker-wrap">
+        <div class="ticker-move">
+          <span class="ticker-text">Cargando clasificaciones...</span>
+        </div>
+      </div>
+    </div>
 
   </div>
 

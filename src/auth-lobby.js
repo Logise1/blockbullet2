@@ -80,6 +80,7 @@ export const authSystem = {
         gamesPlayedSuddenDeath: 0,
         totalWins: 0,
         friends: [],
+        pp: 1000,
         createdAt: Date.now()
       };
 
@@ -121,6 +122,7 @@ export const authSystem = {
           gamesPlayedSuddenDeath: 0,
           totalWins: 0,
           friends: [],
+          pp: 1000,
           createdAt: Date.now()
         };
         await setDoc(doc(db, "users", user.uid), userData);
@@ -146,7 +148,7 @@ export const authSystem = {
   },
 
   // Update statistics after game
-  async updateStats(uid, mode, isWinner, score = null) {
+  async updateStats(uid, mode, isWinner, score = null, newPP = null) {
     if (!isFirebaseConfigured) return;
     try {
       const userRef = doc(db, "users", uid);
@@ -175,6 +177,10 @@ export const authSystem = {
         } else {
           updates.lossesSuddenDeath = (data.lossesSuddenDeath || 0) + 1;
         }
+      }
+
+      if (newPP !== null && newPP !== undefined) {
+        updates.pp = newPP;
       }
 
       await updateDoc(userRef, updates);
@@ -218,6 +224,44 @@ export const authSystem = {
     await updateDoc(userRef, {
       friends: arrayRemove(friendUsername)
     });
+  },
+
+  // Get top 10 players globally by PP
+  async getTopPlayers() {
+    if (!isFirebaseConfigured) return [];
+    try {
+      const q = query(
+        collection(db, "users"),
+        orderBy("pp", "desc"),
+        limit(10)
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => doc.data());
+    } catch (err) {
+      console.error("Error getting top players:", err);
+      return [];
+    }
+  },
+
+  // Get full details of all friends (for reading their PPs)
+  async getFriendsDetails(friendUsernames) {
+    if (!isFirebaseConfigured || !friendUsernames || friendUsernames.length === 0) return [];
+    try {
+      const details = [];
+      // Firestore 'in' query has a limit of 10 items in standard batches, let's query in chunks of 10
+      for (let i = 0; i < friendUsernames.length; i += 10) {
+        const chunk = friendUsernames.slice(i, i + 10);
+        const q = query(collection(db, "users"), where("username", "in", chunk));
+        const snap = await getDocs(q);
+        snap.forEach(doc => details.push(doc.data()));
+      }
+      // Sort friends by PP descending for clean rendering
+      details.sort((a, b) => (b.pp || 1000) - (a.pp || 1000));
+      return details;
+    } catch (err) {
+      console.error("Error getting friends details:", err);
+      return [];
+    }
   },
 
   // Listen to Auth changes
