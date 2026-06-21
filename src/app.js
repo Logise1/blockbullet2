@@ -63,6 +63,7 @@ const dragInfo = {
 const views = {
   auth: document.getElementById("auth-view"),
   lobby: document.getElementById("lobby-view"),
+  friends: document.getElementById("friends-view"),
   waiting: document.getElementById("waiting-view"),
   game: document.getElementById("game-view"),
   gameoverModal: document.getElementById("gameover-modal")
@@ -92,8 +93,10 @@ const lobbyUI = {
   playedSudden: document.getElementById("stat-played-sudden"),
   winsSudden: document.getElementById("stat-wins-sudden"),
   lossesSudden: document.getElementById("stat-losses-sudden"),
-  modeTabs: document.querySelectorAll(".mode-tab"),
-  quickPlayBtn: document.getElementById("quick-play-btn"),
+  playModeScoreBtn: document.getElementById("play-mode-score-btn"),
+  playModeSuddenBtn: document.getElementById("play-mode-sudden-btn"),
+  friendsBackBtn: document.getElementById("friends-back-btn"),
+  friendsSelectedMode: document.getElementById("friends-selected-mode"),
   logoutBtn: document.getElementById("lobby-logout-btn"),
   
   // Friends list UI additions
@@ -277,25 +280,35 @@ function setupAuthHandlers() {
 let selectedMode = "score"; // "score" or "sudden_death"
 
 function setupLobbyHandlers() {
-  // Mode Tabs selection
-  lobbyUI.modeTabs.forEach(tab => {
-    tab.addEventListener("click", () => {
-      lobbyUI.modeTabs.forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      selectedMode = tab.dataset.mode;
-      
-      const descBox = document.getElementById("mode-detail-desc");
-      if (descBox) {
-        if (selectedMode === "score") {
-          descBox.textContent = "Consigue puntos limpiando líneas. Si mueres, gana el que tenga más puntos.";
-        } else {
-          descBox.textContent = "Coloca bloques. El primero que no pueda mover, pierde la partida.";
-        }
+  // Mode selection and transition to friends view
+  if (lobbyUI.playModeScoreBtn) {
+    lobbyUI.playModeScoreBtn.addEventListener("click", () => {
+      selectedMode = "score";
+      if (lobbyUI.friendsSelectedMode) {
+        lobbyUI.friendsSelectedMode.textContent = "Modo: Puntaje";
       }
-      
       audioSystem.playTap();
+      switchView("friends-view");
     });
-  });
+  }
+
+  if (lobbyUI.playModeSuddenBtn) {
+    lobbyUI.playModeSuddenBtn.addEventListener("click", () => {
+      selectedMode = "sudden_death";
+      if (lobbyUI.friendsSelectedMode) {
+        lobbyUI.friendsSelectedMode.textContent = "Modo: Muerte Súbita";
+      }
+      audioSystem.playTap();
+      switchView("friends-view");
+    });
+  }
+
+  if (lobbyUI.friendsBackBtn) {
+    lobbyUI.friendsBackBtn.addEventListener("click", () => {
+      audioSystem.playTap();
+      switchView("lobby-view");
+    });
+  }
 
   // Sound Toggle
   const initialSoundEnabled = audioSystem.isSoundEnabled();
@@ -335,47 +348,6 @@ function setupLobbyHandlers() {
     } finally {
       lobbyUI.addFriendBtn.disabled = false;
       lobbyUI.addFriendBtn.textContent = origText;
-    }
-  });
-
-  // Quick Play Matchmaking
-  lobbyUI.quickPlayBtn.addEventListener("click", async () => {
-    if (!currentUser) return;
-    lobbyUI.quickPlayBtn.disabled = true;
-    lobbyUI.quickPlayBtn.textContent = "BUSCANDO...";
-
-    try {
-      await lobbySystem.quickPlay(
-        currentUser,
-        selectedMode,
-        // Match found!
-        (lobbyData) => {
-          activeLobby = lobbyData;
-          lobbyUI.quickPlayBtn.disabled = false;
-          lobbyUI.quickPlayBtn.textContent = "PARTIDA RÁPIDA";
-          
-          // Only connect to relay if we are not already connected as Host
-          const isHost = lobbyData.hostUsername === currentUser.username;
-          if (!isHost) {
-            connectToGameRelay(lobbyData.roomCode, currentUser.username);
-          } else {
-            // Update waiting room UI with guest info
-            setupWaitingRoom(lobbyData);
-          }
-        },
-        // Waiting in lobby...
-        (roomCode) => {
-          activeLobby = { roomCode, mode: selectedMode, hostUsername: currentUser.username, guestUsername: null };
-          setupWaitingRoom(activeLobby);
-          switchView("waiting-view");
-          lobbyUI.quickPlayBtn.disabled = false;
-          lobbyUI.quickPlayBtn.textContent = "PARTIDA RÁPIDA";
-        }
-      );
-    } catch (e) {
-      alert(e.message);
-      lobbyUI.quickPlayBtn.disabled = false;
-      lobbyUI.quickPlayBtn.textContent = "PARTIDA RÁPIDA";
     }
   });
 
@@ -1807,11 +1779,14 @@ window.addEventListener("load", () => {
     });
   }
   
-  // Register Service Worker
+  // Unregister existing Service Workers
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js")
-      .then((reg) => console.log("[PWA] Service Worker registered:", reg))
-      .catch((err) => console.error("[PWA] Service Worker registration failed:", err));
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (let registration of registrations) {
+        registration.unregister();
+        console.log("[PWA] Service Worker unregistered:", registration);
+      }
+    }).catch((err) => console.error("[PWA] Failed to unregister service workers:", err));
   }
 });
 

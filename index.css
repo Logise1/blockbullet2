@@ -789,107 +789,191 @@ body {
 /* ==========================================================================
    GAME MODE TAB SELECTOR
    ========================================================================== */
-.mode-selection-container {
-  margin-bottom: 18px;
+/* ==========================================================================
+   LOBBY PLAY MODES (TWO BIG BUTTONS)
+   ========================================================================== */
+.lobby-play-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 18px 0;
+  width: 100%;
 }
 
-.mode-slider-tabs {
-  display: flex;
-  background: rgba(5, 5, 12, 0.7);
-  padding: 4px;
-  /* Angled tabs layout container */
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-  border: 1px solid var(--panel-border);
-  gap: 4px;
-  margin-bottom: 8px;
+.play-mode-card {
   position: relative;
-}
-
-.mode-slide-btn {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  padding: 10px;
-  font-size: 0.78rem;
-  font-weight: 800;
-  cursor: pointer;
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 6px;
-  transition: all 0.25s ease;
-  letter-spacing: 0.5px;
-  clip-path: none !important; /* disabled clip path inside tabs container */
+  justify-content: flex-start;
+  text-align: left;
+  gap: 18px;
+  padding: 18px 20px;
+  width: 100%;
+  background: rgba(8, 8, 24, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px) !important;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
 }
 
-.mode-slide-btn::before {
-  display: none; /* remove vector border */
+.play-mode-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1.5px;
+  clip-path: inherit;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 5;
+  transition: background 0.3s ease;
 }
 
-.mode-slide-btn.active {
-  background: rgba(255, 255, 255, 0.04);
+.score-mode-card::before {
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.3), rgba(0, 245, 255, 0.05));
+}
+
+.sudden-mode-card::before {
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.3), rgba(255, 0, 127, 0.05));
+}
+
+/* Glow orb background on hover */
+.mode-card-glow {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.score-mode-card .mode-card-glow {
+  background: var(--p1-cyan-glow);
+  left: -20px;
+  top: -20px;
+}
+
+.sudden-mode-card .mode-card-glow {
+  background: var(--p2-pink-glow);
+  right: -20px;
+  bottom: -20px;
+}
+
+.play-mode-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  background: rgba(12, 12, 36, 0.6);
+}
+
+.score-mode-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 245, 255, 0.15), var(--shadow-neon-cyan);
+}
+
+.score-mode-card:hover::before {
+  background: linear-gradient(135deg, var(--p1-cyan), rgba(0, 245, 255, 0.2));
+}
+
+.sudden-mode-card:hover {
+  box-shadow: 0 10px 25px rgba(255, 0, 127, 0.15), var(--shadow-neon-pink);
+}
+
+.sudden-mode-card:hover::before {
+  background: linear-gradient(135deg, var(--p2-pink), rgba(255, 0, 127, 0.2));
+}
+
+.play-mode-card:hover .mode-card-glow {
+  opacity: 0.6;
+  transform: scale(1.2);
+}
+
+.play-mode-card:hover .mode-card-icon {
+  transform: scale(1.15) rotate(5deg);
+}
+
+.mode-card-icon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.score-mode-card .mode-card-icon {
   color: var(--p1-cyan);
+  filter: drop-shadow(0 0 6px var(--p1-cyan-glow));
 }
 
-.mode-icon-svg {
-  transition: transform 0.2s ease, filter 0.2s ease;
+.sudden-mode-card .mode-card-icon {
+  color: var(--p2-pink);
+  filter: drop-shadow(0 0 6px var(--p2-pink-glow));
 }
 
-.mode-slide-btn.active .mode-icon-svg {
-  transform: scale(1.08);
-  filter: drop-shadow(0 0 4px var(--p1-cyan-glow));
+.mode-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 1;
 }
 
-.mode-description-box {
-  padding: 12px 16px !important;
-  font-size: 0.78rem;
+.mode-card-title {
+  font-size: 0.95rem;
+  font-weight: 850;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.mode-card-desc {
+  font-size: 0.74rem;
+  font-weight: 400;
   color: var(--text-secondary);
-  line-height: 1.4;
-  min-height: 52px;
-  background: rgba(10, 10, 30, 0.3);
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.3;
 }
 
 /* ==========================================================================
-   LOBBY ACTIONS & CODE POPUPS
+   FRIENDS VIEW HEADER AND SPECIFIC VIEW LAYOUT
    ========================================================================== */
-.lobby-actions {
+.friends-header-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 16px;
 }
 
-.code-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.friends-selected-mode-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--panel-border);
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.mode-score-badge {
+  color: var(--p1-cyan);
+  box-shadow: var(--shadow-neon-cyan);
+  border-color: rgba(0, 245, 255, 0.25);
+}
+
+.mode-sudden-badge {
+  color: var(--p2-pink);
+  box-shadow: var(--shadow-neon-pink);
+  border-color: rgba(255, 0, 127, 0.25);
 }
 
 .logout-link {
   margin-top: 10px;
   align-self: center;
-}
-
-/* Premium Gradient Shifting Button (Partida Rápida) */
-.premium-glow-btn {
-  background: linear-gradient(90deg, #00f5ff, #0055ff, #ff007f, #00f5ff) !important;
-  background-size: 300% 100% !important;
-  animation: moveGradient 5s linear infinite;
-  box-shadow: 0 0 25px rgba(0, 85, 255, 0.3);
-  color: #020206 !important;
-}
-
-.premium-glow-btn::before {
-  display: none !important; /* no borders, gradient covers it */
-}
-
-.premium-glow-btn:hover {
-  box-shadow: 0 0 32px rgba(0, 245, 255, 0.5);
-}
-
-@keyframes moveGradient {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
 }
 
 /* Join Code popup slide drawer */
