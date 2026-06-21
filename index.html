@@ -11,6 +11,9 @@
 </head>
 <body>
 
+  <!-- Floating invite notifications container -->
+  <div id="invite-notification-container" class="invite-notification-container"></div>
+
   <!-- Floating particles background -->
   <div class="bg-effects">
     <div class="glow-orb orb-1"></div>
@@ -200,20 +203,20 @@
       <!-- Action Buttons (Modern Glow) -->
       <div class="lobby-actions">
         <button id="quick-play-btn" class="btn primary-btn premium-glow-btn">PARTIDA RÁPIDA</button>
-        
-        <div class="code-actions">
-          <button id="host-game-btn" class="btn outline-btn">CREAR SALA</button>
-          <button id="join-game-btn" class="btn outline-btn">UNIRSE A SALA</button>
-        </div>
       </div>
 
-      <!-- Join with Code Form (hidden by default) -->
-      <div id="join-code-panel" class="join-code-popup hidden glass-card">
-        <h3>Unirse con Código</h3>
-        <input type="text" id="join-code-input" placeholder="Código de 5 letras" maxlength="5" autocomplete="off">
-        <div class="popup-buttons">
-          <button id="join-code-cancel" class="btn text-btn">Cancelar</button>
-          <button id="join-code-confirm" class="btn primary-btn">UNIRSE</button>
+      <!-- Friends Panel -->
+      <div class="friends-panel glass-card">
+        <h3 class="panel-section-title">Mis Amigos</h3>
+        <div class="add-friend-form">
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
+            <input type="text" id="add-friend-input" placeholder="Nombre de usuario..." maxlength="15" autocomplete="off">
+          </div>
+          <button id="add-friend-btn" class="btn primary-btn">AGREGAR</button>
+        </div>
+        <div class="friends-list" id="friends-list">
+          <div class="friends-empty-msg">No has agregado amigos todavía.</div>
         </div>
       </div>
 
@@ -223,10 +226,10 @@
     <!-- 3. WAITING SCREEN -->
     <section id="waiting-view" class="view">
       <div class="glass-card waiting-card">
-        <h2>Sala de Espera</h2>
-        <p class="waiting-subtitle">Comparte este código con tu oponente para jugar</p>
+        <h2 id="waiting-title">Sala de Espera</h2>
+        <p id="waiting-subtitle" class="waiting-subtitle">Comparte este código con tu oponente para jugar</p>
         
-        <div class="room-code-display">
+        <div id="waiting-room-code-section" class="room-code-display">
           <span id="room-code-val">-----</span>
           <button id="copy-code-btn" class="icon-btn" title="Copiar Código">
             <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">

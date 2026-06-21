@@ -1,5 +1,5 @@
 import { isFirebaseConfigured } from "./firebase-config.js";
-import { authSystem, lobbySystem } from "./auth-lobby.js";
+import { authSystem, lobbySystem, inviteSystem } from "./auth-lobby.js";
 import { audioSystem } from "./audio.js";
 import { 
   createBoard, 
@@ -18,6 +18,9 @@ let activeLobby = null;
 let relay = null;
 let lobbyHeartbeatInterval = null;
 let gameStartTimeout = null;
+let sentInviteId = null;
+let sentInviteUnsubscribe = null;
+let incomingInvitesUnsubscribe = null;
 
 const gameState = {
   board: createBoard(),
@@ -89,17 +92,19 @@ const lobbyUI = {
   lossesSudden: document.getElementById("stat-losses-sudden"),
   modeTabs: document.querySelectorAll(".mode-tab"),
   quickPlayBtn: document.getElementById("quick-play-btn"),
-  hostBtn: document.getElementById("host-game-btn"),
-  joinBtn: document.getElementById("join-game-btn"),
   logoutBtn: document.getElementById("lobby-logout-btn"),
-  joinCodePanel: document.getElementById("join-code-panel"),
-  joinCodeInput: document.getElementById("join-code-input"),
-  joinCodeConfirm: document.getElementById("join-code-confirm"),
-  joinCodeCancel: document.getElementById("join-code-cancel")
+  
+  // Friends list UI additions
+  addFriendInput: document.getElementById("add-friend-input"),
+  addFriendBtn: document.getElementById("add-friend-btn"),
+  friendsList: document.getElementById("friends-list")
 };
 
 // Waiting view elements
 const waitingUI = {
+  title: document.getElementById("waiting-title"),
+  subtitle: document.getElementById("waiting-subtitle"),
+  roomCodeSection: document.getElementById("waiting-room-code-section"),
   roomCodeVal: document.getElementById("room-code-val"),
   copyBtn: document.getElementById("copy-code-btn"),
   hostName: document.getElementById("lobby-host-name"),
@@ -165,8 +170,15 @@ window.addEventListener("DOMContentLoaded", () => {
       currentUser = userData;
       updateLobbyProfileUI(userData);
       switchView("lobby-view");
+      
+      // Start listening to incoming invites
+      startIncomingInvitesListener(userData.uid);
+      
+      // Render friends list
+      renderFriendsList();
     } else {
       currentUser = null;
+      stopIncomingInvitesListener();
       switchView("auth-view");
     }
   });
@@ -289,59 +301,34 @@ function setupLobbyHandlers() {
     audioSystem.playTap();
   });
 
-  // Host Game
-  lobbyUI.hostBtn.addEventListener("click", async () => {
-    if (!currentUser) return;
-    try {
-      lobbyUI.hostBtn.disabled = true;
-      activeLobby = await lobbySystem.hostGame(currentUser, selectedMode);
-      if (activeLobby) {
-        setupWaitingRoom(activeLobby);
-        switchView("waiting-view");
-      }
-    } catch (e) {
-      alert(e.message);
-    } finally {
-      lobbyUI.hostBtn.disabled = false;
-    }
-  });
-
-  // Join Game Popup Toggle
-  lobbyUI.joinBtn.addEventListener("click", () => {
-    lobbyUI.joinCodePanel.classList.remove("hidden");
-    lobbyUI.joinCodeInput.focus();
-    audioSystem.playTap();
-  });
-
-  lobbyUI.joinCodeCancel.addEventListener("click", () => {
-    lobbyUI.joinCodePanel.classList.add("hidden");
-    lobbyUI.joinCodeInput.value = "";
-    audioSystem.playTap();
-  });
-
-  // Confirm Join Game
-  lobbyUI.joinCodeConfirm.addEventListener("click", async () => {
-    const code = lobbyUI.joinCodeInput.value.trim().toUpperCase();
-    if (code.length !== 5) {
-      alert("El código debe tener 5 caracteres.");
+  // Add Friend Handler
+  lobbyUI.addFriendBtn.addEventListener("click", async () => {
+    const friendUsername = lobbyUI.addFriendInput.value.trim();
+    if (!friendUsername) {
+      alert("Por favor ingresa un nombre de usuario.");
       return;
     }
-
+    
+    lobbyUI.addFriendBtn.disabled = true;
+    const origText = lobbyUI.addFriendBtn.textContent;
+    lobbyUI.addFriendBtn.textContent = "...";
+    
     try {
-      lobbyUI.joinCodeConfirm.disabled = true;
-      const joinedLobby = await lobbySystem.joinGame(currentUser, code);
-      if (joinedLobby) {
-        activeLobby = joinedLobby;
-        lobbyUI.joinCodePanel.classList.add("hidden");
-        lobbyUI.joinCodeInput.value = "";
-        
-        // Initialize Realtime connection
-        connectToGameRelay(joinedLobby.roomCode, currentUser.username);
+      await authSystem.addFriend(currentUser, friendUsername);
+      lobbyUI.addFriendInput.value = "";
+      alert(`¡${friendUsername} ha sido agregado a tus amigos!`);
+      
+      // Refresh cache and render list
+      const updatedStats = await authSystem.getUserStats(currentUser.uid);
+      if (updatedStats) {
+        currentUser = updatedStats;
+        renderFriendsList();
       }
-    } catch (e) {
-      alert(e.message);
+    } catch (err) {
+      alert(err.message);
     } finally {
-      lobbyUI.joinCodeConfirm.disabled = false;
+      lobbyUI.addFriendBtn.disabled = false;
+      lobbyUI.addFriendBtn.textContent = origText;
     }
   });
 
@@ -482,19 +469,23 @@ function setupWaitingHandlers() {
 
   waitingUI.cancelBtn.addEventListener("click", async () => {
     audioSystem.playTap();
-    stopLobbyHeartbeat();
-    if (activeLobby) {
-      lobbySystem.cancelActiveLobbyListener();
-      if (activeLobby.hostUsername === currentUser.username) {
-        await lobbySystem.deleteLobby(activeLobby.roomCode);
+    if (sentInviteId) {
+      await cancelWaitingRoom();
+    } else {
+      stopLobbyHeartbeat();
+      if (activeLobby) {
+        lobbySystem.cancelActiveLobbyListener();
+        if (activeLobby.hostUsername === currentUser.username) {
+          await lobbySystem.deleteLobby(activeLobby.roomCode);
+        }
       }
+      if (relay) {
+        relay.close();
+        relay = null;
+      }
+      activeLobby = null;
+      switchView("lobby-view");
     }
-    if (relay) {
-      relay.close();
-      relay = null;
-    }
-    activeLobby = null;
-    switchView("lobby-view");
   });
 }
 
@@ -908,21 +899,27 @@ function onDragStart(e) {
   dragInfo.isDragging = true;
   dragInfo.slotIndex = slotIndex;
   dragInfo.piece = piece;
+  dragInfo.isTouch = !!e.touches;
 
   const coords = getPointerCoords(e);
   dragInfo.startX = coords.x;
   dragInfo.startY = coords.y;
 
-  // Create floating 100% scale representation of the piece above the finger
+  // Calculate board layout dimensions for hover hitboxes first
+  dragInfo.boardRect = gameUI.board.getBoundingClientRect();
+  dragInfo.cellWidth = dragInfo.boardRect.width / 8;
+  dragInfo.cellHeight = dragInfo.boardRect.height / 8;
+
+  // Initialize snapping states
+  dragInfo.lastHitRow = -1;
+  dragInfo.lastHitCol = -1;
+  dragInfo.lastIsValid = false;
+
+  // Create floating representation matching board cell size
   createFloatingDragVisual(piece, coords.x, coords.y);
 
   // Hide original element inside tray
   element.style.visibility = "hidden";
-
-  // Calculate board layout dimensions for hover hitboxes
-  dragInfo.boardRect = gameUI.board.getBoundingClientRect();
-  dragInfo.cellWidth = dragInfo.boardRect.width / 8;
-  dragInfo.cellHeight = dragInfo.boardRect.height / 8;
 
   audioSystem.playTap();
 
@@ -947,20 +944,26 @@ function createFloatingDragVisual(piece, x, y) {
   
   container.style.display = "flex";
   container.style.flexDirection = "column";
-  container.style.gap = "4px";
+  container.style.gap = "5px"; // Match board gap
 
   for (let r = 0; r < rCount; r++) {
     const rowEl = document.createElement("div");
     rowEl.className = "piece-row";
     rowEl.style.display = "flex";
-    rowEl.style.gap = "4px";
+    rowEl.style.gap = "5px"; // Match board gap
 
     for (let c = 0; c < cCount; c++) {
       const blockEl = document.createElement("div");
       blockEl.className = "piece-block";
       
+      // Match board cell size exactly
+      blockEl.style.width = `${dragInfo.cellWidth - 5}px`;
+      blockEl.style.height = `${dragInfo.cellHeight - 5}px`;
+      
       if (grid[r][c] === 1) {
         blockEl.style.backgroundColor = piece.color;
+        blockEl.style.borderColor = "rgba(255,255,255,0.22)";
+        blockEl.style.boxShadow = `inset 0 3px 5px rgba(255, 255, 255, 0.4), inset 0 -3px 5px rgba(0, 0, 0, 0.35)`;
       } else {
         blockEl.style.backgroundColor = "transparent";
         blockEl.style.border = "none";
@@ -970,6 +973,11 @@ function createFloatingDragVisual(piece, x, y) {
     }
     container.appendChild(rowEl);
   }
+
+  container.style.position = "fixed";
+  container.style.left = "0";
+  container.style.top = "0";
+  container.style.transform = "translate3d(0, 0, 0)";
 
   document.body.appendChild(container);
   dragInfo.floatingVisual = container;
@@ -986,16 +994,16 @@ function updateFloatingVisualPosition(x, y) {
   const rCount = grid.length;
   const cCount = grid[0].length;
   
-  // Approximate full size dimensions based on board scale
-  const visualWidth = cCount * 36; // 32px cell + 4px gap
-  const visualHeight = rCount * 36;
+  // Exact dimensions based on board scale
+  const visualWidth = cCount * dragInfo.cellWidth - 5;
+  const visualHeight = rCount * dragInfo.cellHeight - 5;
 
-  // Position it so the finger is below the center-bottom of the piece shape
+  // Position it so the pointer is centered
+  const offsetY = dragInfo.isTouch ? dragInfo.offsetY : 0;
   const posX = x - (visualWidth / 2);
-  const posY = y + dragInfo.offsetY - (visualHeight / 2);
+  const posY = y + offsetY - (visualHeight / 2);
 
-  dragInfo.floatingVisual.style.left = `${posX}px`;
-  dragInfo.floatingVisual.style.top = `${posY}px`;
+  dragInfo.floatingVisual.style.transform = `translate3d(${posX}px, ${posY}px, 0)`;
 
   dragInfo.currentX = posX;
   dragInfo.currentY = posY;
@@ -1017,6 +1025,11 @@ function onDragMove(e) {
 
   // Check if target coordinates are within boundaries
   const isValid = canPlacePiece(gameState.board, dragInfo.piece.grid, hitRow, hitCol);
+
+  // Save snapping target values
+  dragInfo.lastHitRow = hitRow;
+  dragInfo.lastHitCol = hitCol;
+  dragInfo.lastIsValid = isValid;
 
   if (isValid) {
     highlightBoardCells(hitRow, hitCol, dragInfo.piece.grid, true);
@@ -1080,10 +1093,10 @@ async function onDragEnd(e) {
   }
 
   // Compute final placement target
-  const hitRow = Math.round((dragInfo.currentY - dragInfo.boardRect.top) / dragInfo.cellHeight);
-  const hitCol = Math.round((dragInfo.currentX - dragInfo.boardRect.left) / dragInfo.cellWidth);
+  const hitRow = dragInfo.lastHitRow;
+  const hitCol = dragInfo.lastHitCol;
 
-  const isValid = canPlacePiece(gameState.board, dragInfo.piece.grid, hitRow, hitCol);
+  const isValid = dragInfo.lastIsValid && canPlacePiece(gameState.board, dragInfo.piece.grid, hitRow, hitCol);
 
   if (isValid) {
     // 1. Write blocks to board
@@ -1412,10 +1425,219 @@ function spawnFloatingEmoji(emoji) {
 
 // View switcher setup helper
 function setupViewSwitcher() {
-  // Allow closing code panels on background click
-  document.addEventListener("click", (e) => {
-    if (!lobbyUI.joinCodePanel.contains(e.target) && e.target !== lobbyUI.joinBtn) {
-      lobbyUI.joinCodePanel.classList.add("hidden");
+  // No-op (previously handled room code popup click-away)
+}
+
+// 9. FRIENDS AND INVITATIONS SYSTEM LOGIC
+
+function startIncomingInvitesListener(uid) {
+  stopIncomingInvitesListener();
+  incomingInvitesUnsubscribe = inviteSystem.listenToIncomingInvites(
+    uid,
+    (invite) => {
+      showInviteNotification(invite);
+    },
+    (inviteId) => {
+      removeInviteNotification(inviteId);
     }
-  }, true);
+  );
+}
+
+function removeInviteNotification(inviteId) {
+  const notif = document.getElementById(`invite-notif-${inviteId}`);
+  if (notif) {
+    notif.remove();
+  }
+}
+
+function stopIncomingInvitesListener() {
+  if (incomingInvitesUnsubscribe) {
+    incomingInvitesUnsubscribe();
+    incomingInvitesUnsubscribe = null;
+  }
+}
+
+function showInviteNotification(invite) {
+  if (document.getElementById(`invite-notif-${invite.id}`)) return;
+  
+  const container = document.getElementById("invite-notification-container");
+  if (!container) return;
+  
+  const notif = document.createElement("div");
+  notif.id = `invite-notif-${invite.id}`;
+  notif.className = "invite-notification glass-card";
+  
+  const modeText = invite.mode === "score" ? "Puntaje" : "Muerte Súbita";
+  
+  notif.innerHTML = `
+    <div class="invite-notification-info">
+      <div class="invite-notification-title"><span>${invite.senderUsername}</span> te invita a jugar!</div>
+      <div class="invite-notification-mode">Modo: ${modeText}</div>
+    </div>
+    <div class="invite-notification-actions">
+      <button class="btn invite-action-btn invite-btn-decline" id="decline-${invite.id}">Rechazar</button>
+      <button class="btn invite-action-btn invite-btn-accept" id="accept-${invite.id}">Aceptar</button>
+    </div>
+  `;
+  
+  notif.querySelector(`#decline-${invite.id}`).addEventListener("click", async () => {
+    audioSystem.playTap();
+    await inviteSystem.declineInvite(invite.id);
+    notif.remove();
+  });
+  
+  notif.querySelector(`#accept-${invite.id}`).addEventListener("click", async () => {
+    audioSystem.playTap();
+    
+    // Accept invite in database
+    await inviteSystem.acceptInvite(invite.id);
+    
+    // Setup local lobby data
+    activeLobby = {
+      roomCode: invite.roomCode,
+      mode: invite.mode,
+      hostUsername: invite.senderUsername,
+      guestUsername: currentUser.username
+    };
+    
+    // Connect to WebSocket Relay as Guest
+    connectToGameRelay(invite.roomCode, currentUser.username);
+    notif.remove();
+  });
+  
+  container.appendChild(notif);
+  
+  // Auto decline and remove after 20 seconds
+  setTimeout(() => {
+    if (notif.parentNode) {
+      inviteSystem.declineInvite(invite.id);
+      notif.remove();
+    }
+  }, 20000);
+}
+
+async function sendInviteToFriend(friendUsername) {
+  if (!currentUser) return;
+  audioSystem.playTap();
+  
+  try {
+    // Show waiting screen formatted as Invite Waiting
+    waitingUI.title.textContent = "Invitando a jugar...";
+    waitingUI.subtitle.textContent = `Esperando que ${friendUsername} acepte la invitación...`;
+    waitingUI.roomCodeSection.classList.add("hidden");
+    
+    waitingUI.hostName.textContent = `${currentUser.username} (Tú)`;
+    waitingUI.guestName.textContent = `${friendUsername}`;
+    waitingUI.guestDot.className = "player-dot dot-offline";
+    waitingUI.statusText.textContent = "Invitación enviada...";
+    
+    switchView("waiting-view");
+    
+    // Create direct invite document
+    const invite = await inviteSystem.sendInvite(currentUser, friendUsername, selectedMode);
+    sentInviteId = invite.id;
+    
+    // Setup activeLobby locally
+    activeLobby = {
+      roomCode: invite.roomCode,
+      mode: invite.mode,
+      hostUsername: currentUser.username,
+      guestUsername: friendUsername
+    };
+    
+    // Connect to WebSocket relay room immediately as Host
+    connectToGameRelay(invite.roomCode, currentUser.username);
+    
+    // Start heartbeat
+    startLobbyHeartbeat(invite.roomCode);
+    
+    // Listen for state changes on this invitation doc
+    sentInviteUnsubscribe = inviteSystem.listenToInvite(invite.id, (updatedInvite) => {
+      if (updatedInvite.status === "accepted") {
+        console.log("[App] Invitation accepted. Starting WebSocket game...");
+        cleanupSentInviteListener();
+      } else if (updatedInvite.status === "declined") {
+        alert(`${friendUsername} rechazó tu invitación.`);
+        cancelWaitingRoom();
+      }
+    });
+  } catch (err) {
+    alert(err.message);
+    cancelWaitingRoom();
+  }
+}
+
+async function cancelWaitingRoom() {
+  stopLobbyHeartbeat();
+  cleanupSentInviteListener();
+  
+  if (sentInviteId) {
+    await inviteSystem.cancelInvite(sentInviteId);
+    sentInviteId = null;
+  }
+  
+  if (relay) {
+    relay.close();
+    relay = null;
+  }
+  
+  activeLobby = null;
+  switchView("lobby-view");
+}
+
+function cleanupSentInviteListener() {
+  if (sentInviteUnsubscribe) {
+    sentInviteUnsubscribe();
+    sentInviteUnsubscribe = null;
+  }
+}
+
+function renderFriendsList() {
+  if (!currentUser) return;
+  const listEl = lobbyUI.friendsList;
+  if (!listEl) return;
+  listEl.innerHTML = "";
+  
+  const friends = currentUser.friends || [];
+  if (friends.length === 0) {
+    listEl.innerHTML = '<div class="friends-empty-msg">No has agregado amigos todavía.</div>';
+    return;
+  }
+  
+  friends.forEach((friendName) => {
+    const row = document.createElement("div");
+    row.className = "friend-row";
+    row.innerHTML = `
+      <div class="friend-info">
+        <span class="friend-status-dot online"></span>
+        <span class="friend-name">${friendName}</span>
+      </div>
+      <div class="friend-actions">
+        <button class="friend-btn friend-btn-invite" data-username="${friendName}">Invitar</button>
+        <button class="friend-btn friend-btn-remove" data-username="${friendName}">Eliminar</button>
+      </div>
+    `;
+    
+    row.querySelector(".friend-btn-invite").addEventListener("click", () => {
+      sendInviteToFriend(friendName);
+    });
+    
+    row.querySelector(".friend-btn-remove").addEventListener("click", async () => {
+      if (confirm(`¿Estás seguro de eliminar a ${friendName} de tus amigos?`)) {
+        audioSystem.playTap();
+        try {
+          await authSystem.removeFriend(currentUser, friendName);
+          const updatedStats = await authSystem.getUserStats(currentUser.uid);
+          if (updatedStats) {
+            currentUser = updatedStats;
+            renderFriendsList();
+          }
+        } catch (err) {
+          alert(err.message);
+        }
+      }
+    });
+    
+    listEl.appendChild(row);
+  });
 }

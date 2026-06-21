@@ -1722,3 +1722,244 @@ body {
   text-decoration: underline;
   margin-left: 4px;
 }
+
+/* ==========================================================================
+   FRIENDS PANEL & DIRECT INVITES
+   ========================================================================== */
+.friends-panel {
+  padding: 16px 20px !important;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.add-friend-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.add-friend-form .input-wrapper {
+  flex: 1;
+}
+
+.add-friend-form input {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+#add-friend-btn {
+  width: 100px;
+  font-size: 0.75rem;
+  padding: 10px 12px;
+  height: 38px;
+  flex-shrink: 0;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.friends-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.friends-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.friend-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.2s ease;
+}
+
+.friend-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.friend-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.friend-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.friend-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.friend-status-dot.online {
+  background: var(--cyber-green);
+  box-shadow: 0 0 6px var(--cyber-green-glow);
+}
+
+.friend-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.friend-btn {
+  font-size: 0.7rem;
+  padding: 6px 12px;
+  height: 28px;
+  width: auto;
+  clip-path: none !important;
+  border-radius: 6px;
+}
+
+.friend-btn::before {
+  display: none;
+}
+
+.friend-btn-invite {
+  background: rgba(0, 245, 255, 0.1);
+  color: var(--p1-cyan);
+  border: 1px solid rgba(0, 245, 255, 0.2);
+}
+
+.friend-btn-invite:hover {
+  background: var(--p1-cyan);
+  color: #020206;
+}
+
+.friend-btn-remove {
+  background: rgba(255, 0, 127, 0.05);
+  color: var(--p2-pink);
+  border: 1px solid rgba(255, 0, 127, 0.15);
+}
+
+.friend-btn-remove:hover {
+  background: var(--p2-pink);
+  color: #fff;
+}
+
+.friends-empty-msg {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 12px 0;
+  opacity: 0.7;
+}
+
+/* Floating notifications at the top */
+.invite-notification-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 418px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.invite-notification {
+  pointer-events: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(8, 8, 24, 0.95);
+  border: 1px solid var(--p1-cyan);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 15px var(--p1-cyan-glow);
+  transform: translateY(-50px);
+  opacity: 0;
+  animation: slideDownNotification 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes slideDownNotification {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.invite-notification-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.invite-notification-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.invite-notification-title span {
+  color: var(--p1-cyan);
+}
+
+.invite-notification-mode {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.invite-notification-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.invite-action-btn {
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  height: 32px;
+  width: auto;
+  border-radius: 6px;
+  clip-path: none !important;
+}
+
+.invite-action-btn::before {
+  display: none;
+}
+
+.invite-btn-decline {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.invite-btn-decline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.invite-btn-accept {
+  background: linear-gradient(135deg, var(--p1-cyan) 0%, #0055ff 100%);
+  color: #020206;
+}
+
+.invite-btn-accept:hover {
+  box-shadow: 0 0 10px var(--p1-cyan-glow);
+}
+
+#dragged-piece-visual-floating {
+  transition: none !important;
+}
+

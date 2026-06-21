@@ -18,7 +18,9 @@ import {
   onSnapshot, 
   deleteDoc,
   orderBy,
-  limit
+  limit,
+  arrayUnion,
+  arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { auth, db, isFirebaseConfigured } from "./firebase-config.js";
 
@@ -77,6 +79,7 @@ export const authSystem = {
         lossesSuddenDeath: 0,
         gamesPlayedSuddenDeath: 0,
         totalWins: 0,
+        friends: [],
         createdAt: Date.now()
       };
 
@@ -117,6 +120,7 @@ export const authSystem = {
           lossesSuddenDeath: 0,
           gamesPlayedSuddenDeath: 0,
           totalWins: 0,
+          friends: [],
           createdAt: Date.now()
         };
         await setDoc(doc(db, "users", user.uid), userData);
@@ -177,6 +181,43 @@ export const authSystem = {
     } catch (error) {
       console.error("Error updating stats:", error);
     }
+  },
+
+  // Add a friend
+  async addFriend(currentUserStats, friendUsername) {
+    if (!this.checkFirebaseReady()) return;
+    
+    friendUsername = friendUsername.trim();
+    if (friendUsername.toLowerCase() === currentUserStats.username.toLowerCase()) {
+      throw new Error("No puedes agregarte a ti mismo como amigo.");
+    }
+
+    // Check if the user document with that username exists
+    const q = query(collection(db, "users"), where("usernameLower", "==", friendUsername.toLowerCase()));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      throw new Error("El usuario no existe.");
+    }
+
+    const friendDoc = querySnapshot.docs[0];
+    const friendData = friendDoc.data();
+
+    // Add to our friend list in the "users" collection
+    const userRef = doc(db, "users", currentUserStats.uid);
+    await updateDoc(userRef, {
+      friends: arrayUnion(friendData.username)
+    });
+
+    return friendData.username;
+  },
+
+  // Remove a friend
+  async removeFriend(currentUserStats, friendUsername) {
+    if (!this.checkFirebaseReady()) return;
+    const userRef = doc(db, "users", currentUserStats.uid);
+    await updateDoc(userRef, {
+      friends: arrayRemove(friendUsername)
+    });
   },
 
   // Listen to Auth changes
@@ -370,6 +411,98 @@ export const lobbySystem = {
       await updateDoc(lobbyRef, { lastActive: Date.now() });
     } catch (e) {
       console.error("Error updating heartbeat:", e);
+    }
+  }
+};
+
+export const inviteSystem = {
+  // Send invite to a friend
+  async sendInvite(senderStats, receiverUsername, mode) {
+    if (!authSystem.checkFirebaseReady()) return null;
+    
+    // Get receiver stats to find their UID
+    const q = query(collection(db, "users"), where("usernameLower", "==", receiverUsername.toLowerCase()));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+      throw new Error("El usuario no existe.");
+    }
+    const receiverData = querySnapshot.docs[0].data();
+    
+    const roomCode = generateRoomCode();
+    const inviteId = `${senderStats.uid}_${receiverData.uid}_${Date.now()}`;
+    const inviteRef = doc(db, "invites", inviteId);
+    
+    const inviteData = {
+      id: inviteId,
+      senderUid: senderStats.uid,
+      senderUsername: senderStats.username,
+      receiverUid: receiverData.uid,
+      receiverUsername: receiverData.username,
+      roomCode: roomCode,
+      mode: mode,
+      status: "pending", // pending, accepted, declined
+      createdAt: Date.now()
+    };
+    
+    await setDoc(inviteRef, inviteData);
+    return inviteData;
+  },
+  
+  // Listen to incoming pending invites
+  listenToIncomingInvites(currentUserUid, onInviteReceived, onInviteRemoved) {
+    if (!isFirebaseConfigured) return () => {};
+    const q = query(
+      collection(db, "invites"),
+      where("receiverUid", "==", currentUserUid),
+      where("status", "==", "pending")
+    );
+    
+    return onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+          onInviteReceived(change.doc.data());
+        } else if (change.type === "removed") {
+          if (onInviteRemoved) onInviteRemoved(change.doc.id);
+        }
+      });
+    });
+  },
+  
+  // Listen to changes in a specific invite (useful for the sender)
+  listenToInvite(inviteId, onUpdate) {
+    if (!isFirebaseConfigured) return () => {};
+    const inviteRef = doc(db, "invites", inviteId);
+    return onSnapshot(inviteRef, (docSnap) => {
+      if (docSnap.exists()) {
+        onUpdate(docSnap.data());
+      }
+    });
+  },
+  
+  // Accept invite
+  async acceptInvite(inviteId) {
+    if (!isFirebaseConfigured) return;
+    const inviteRef = doc(db, "invites", inviteId);
+    await updateDoc(inviteRef, {
+      status: "accepted"
+    });
+  },
+  
+  // Decline/Cancel invite
+  async declineInvite(inviteId) {
+    if (!isFirebaseConfigured) return;
+    const inviteRef = doc(db, "invites", inviteId);
+    await updateDoc(inviteRef, {
+      status: "declined"
+    });
+  },
+  
+  async cancelInvite(inviteId) {
+    if (!isFirebaseConfigured) return;
+    try {
+      await deleteDoc(doc(db, "invites", inviteId));
+    } catch (err) {
+      console.error("Error cancelling invite:", err);
     }
   }
 };
