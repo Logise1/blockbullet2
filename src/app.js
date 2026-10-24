@@ -1,5 +1,5 @@
 import { isFirebaseConfigured } from "./firebase-config.js";
-import { authSystem, lobbySystem, inviteSystem } from "./auth-lobby.js";
+import { authSystem, lobbySystem, inviteSystem, mapAuthError } from "./auth-lobby.js";
 import { audioSystem } from "./audio.js";
 import { 
   createBoard, 
@@ -23,6 +23,7 @@ let sentInviteUnsubscribe = null;
 let incomingInvitesUnsubscribe = null;
 let tickerInterval = null;
 let deferredPrompt = null;
+const LAST_USERNAME_KEY = "bb_last_username";
 
 const gameState = {
   board: createBoard(),
@@ -74,9 +75,19 @@ const authForm = {
   title: document.getElementById("auth-title"),
   usernameInput: document.getElementById("auth-username"),
   passwordInput: document.getElementById("auth-password"),
+  confirmGroup: document.getElementById("auth-confirm-group"),
+  confirmInput: document.getElementById("auth-confirm-password"),
   submitBtn: document.getElementById("auth-submit-btn"),
   toggleMsg: document.getElementById("auth-toggle-msg"),
   toggleLink: document.getElementById("auth-toggle-link"),
+  errorEl: document.getElementById("auth-error"),
+  tabLogin: document.getElementById("auth-tab-login"),
+  tabRegister: document.getElementById("auth-tab-register"),
+  tabs: document.querySelector(".auth-tabs"),
+  passwordToggle: document.getElementById("auth-password-toggle"),
+  strengthWrap: document.getElementById("auth-password-strength"),
+  strengthFill: document.getElementById("auth-strength-fill"),
+  strengthLabel: document.getElementById("auth-strength-label"),
   fbWarning: document.getElementById("fb-warning")
 };
 
@@ -84,7 +95,13 @@ const authForm = {
 const lobbyUI = {
   profileName: document.getElementById("profile-name"),
   profileLevel: document.getElementById("profile-level"),
+  profilePp: document.getElementById("profile-pp"),
+  profileAvatar: document.getElementById("profile-avatar"),
+  accountCard: document.getElementById("account-card"),
+  accountToggle: document.getElementById("account-toggle"),
+  accountSince: document.getElementById("account-since"),
   soundBtn: document.getElementById("sound-toggle-btn"),
+  soundLabel: document.getElementById("sound-toggle-label"),
   highScore: document.getElementById("stat-high-score"),
   totalWins: document.getElementById("stat-total-wins"),
   playedScore: document.getElementById("stat-played-score"),
@@ -152,7 +169,8 @@ const gameoverUI = {
   p2Score: document.getElementById("go-p2-score"),
   rematchBtn: document.getElementById("rematch-btn"),
   rematchStatus: document.getElementById("rematch-status"),
-  menuBtn: document.getElementById("gameover-menu-btn")
+  menuBtn: document.getElementById("gameover-menu-btn"),
+  pp: document.getElementById("gameover-pp")
 };
 
 // Initialize Application
@@ -160,39 +178,46 @@ window.addEventListener("DOMContentLoaded", () => {
   setupViewSwitcher();
   setupAuthHandlers();
   setupLobbyHandlers();
+  setupAccountHandlers();
+  setupRankingHandlers();
   setupWaitingHandlers();
   setupGameControls();
   setupGameOverHandlers();
 
-  // Show Firebase Config Warning if not initialized
+  const savedUsername = localStorage.getItem(LAST_USERNAME_KEY);
+  if (savedUsername && authForm.usernameInput) {
+    authForm.usernameInput.value = savedUsername;
+  }
+
   if (!isFirebaseConfigured) {
     authForm.fbWarning.classList.remove("hidden");
   }
 
-  // Subscribe to Auth Status changes
   authSystem.onAuthChange((userData) => {
     if (userData) {
       currentUser = userData;
+      if (userData.username) {
+        localStorage.setItem(LAST_USERNAME_KEY, userData.username);
+      }
       updateLobbyProfileUI(userData);
       switchView("lobby-view");
-      
-      // Start listening to incoming invites
       startIncomingInvitesListener(userData.uid);
-      
-      // Render friends list
       renderFriendsList();
-
-      // Start global PP leaderboard scroller
       startTickerTimer();
     } else {
       currentUser = null;
       stopIncomingInvitesListener();
       stopTickerTimer();
+      closeRanking();
+      if (authForm.submitBtn) {
+        authForm.submitBtn.disabled = false;
+        const btnSpan = authForm.submitBtn.querySelector("span");
+        if (btnSpan) btnSpan.textContent = isRegisterMode ? "Crear cuenta" : "Entrar";
+      }
       switchView("auth-view");
     }
   });
 
-  // Tap triggers browser gesture audio initialization
   document.body.addEventListener("click", () => {
     audioSystem.playTap();
   }, { once: true });
@@ -207,69 +232,177 @@ function switchView(viewId) {
       views[key].classList.remove("active");
     }
   });
-  // Hide Game Over modal when leaving game/gameover views
   if (viewId !== "game-view" && viewId !== "gameover-modal") {
     views.gameoverModal.classList.add("hidden");
   }
+
+  const ranking = document.getElementById("pp-ranking");
+  if (ranking) {
+    const hide = viewId === "game-view" || viewId === "waiting-view" || viewId === "auth-view";
+    ranking.classList.toggle("hidden-ranking", hide);
+    if (hide) ranking.classList.remove("open");
+  }
+}
+
+function showToast(message, type = "") {
+  const container = document.getElementById("toast-container");
+  if (!container) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`.trim();
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3200);
+}
+
+function showAuthError(message) {
+  if (!authForm.errorEl) return;
+  if (!message) {
+    authForm.errorEl.classList.add("hidden");
+    authForm.errorEl.textContent = "";
+    return;
+  }
+  authForm.errorEl.textContent = message;
+  authForm.errorEl.classList.remove("hidden");
+}
+
+function animateNumber(el, target) {
+  if (!el) return;
+  const next = Number(target) || 0;
+  const start = Number(el.textContent.replace(/[^\d-]/g, "")) || 0;
+  if (start === next) {
+    el.textContent = String(next);
+    return;
+  }
+  const duration = 520;
+  const started = performance.now();
+  const tick = (now) => {
+    const t = Math.min(1, (now - started) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = String(Math.round(start + (next - start) * eased));
+    if (t < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+function formatMemberSince(ts) {
+  if (!ts) return "—";
+  try {
+    return new Date(ts).toLocaleDateString("es", { month: "short", year: "numeric" });
+  } catch (_) {
+    return "—";
+  }
+}
+
+function passwordStrength(password) {
+  if (!password || password.length < 6) return "weak";
+  const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^a-zA-Z0-9]/].filter((r) => r.test(password)).length;
+  if (password.length >= 10 && variety >= 2) return "strong";
+  if (password.length >= 6 && variety >= 1) return "medium";
+  return "weak";
 }
 
 // 1. AUTH SCREEN LOGIC
 let isRegisterMode = false;
 
+function setAuthMode(register) {
+  isRegisterMode = register;
+  if (authForm.tabs) authForm.tabs.classList.toggle("register", register);
+  if (authForm.tabLogin) {
+    authForm.tabLogin.classList.toggle("active", !register);
+    authForm.tabLogin.setAttribute("aria-selected", String(!register));
+  }
+  if (authForm.tabRegister) {
+    authForm.tabRegister.classList.toggle("active", register);
+    authForm.tabRegister.setAttribute("aria-selected", String(register));
+  }
+  if (authForm.title) authForm.title.textContent = register ? "Crear cuenta" : "Iniciar sesión";
+  const btnSpan = authForm.submitBtn?.querySelector("span");
+  if (btnSpan) btnSpan.textContent = register ? "Crear cuenta" : "Entrar";
+  if (authForm.confirmGroup) authForm.confirmGroup.classList.toggle("hidden", !register);
+  if (authForm.strengthWrap) authForm.strengthWrap.classList.toggle("hidden", !register);
+  if (authForm.passwordInput) {
+    authForm.passwordInput.autocomplete = register ? "new-password" : "current-password";
+  }
+  if (authForm.toggleMsg) {
+    authForm.toggleMsg.textContent = register
+      ? "Elige un nombre único. Tu sesión se guarda aquí."
+      : "Tu sesión se guarda en este dispositivo.";
+  }
+  showAuthError("");
+}
+
+function updatePasswordStrength() {
+  if (!authForm.strengthFill || !authForm.strengthLabel) return;
+  const strength = passwordStrength(authForm.passwordInput.value);
+  authForm.strengthFill.className = strength;
+  authForm.strengthLabel.textContent =
+    strength === "strong" ? "Fuerte" : strength === "medium" ? "Media" : "Débil";
+}
+
 function setupAuthHandlers() {
-  authForm.toggleLink.addEventListener("click", () => {
-    const card = document.querySelector(".auth-card");
-    card.classList.add("card-swap-anim");
-    
-    setTimeout(() => {
-      isRegisterMode = !isRegisterMode;
-      const btnSpan = authForm.submitBtn.querySelector("span");
-      if (isRegisterMode) {
-        authForm.title.textContent = "Crear Cuenta";
-        if (btnSpan) btnSpan.textContent = "REGISTRARSE";
-        authForm.toggleMsg.innerHTML = '¿Ya tienes cuenta? <span id="auth-toggle-link">Inicia Sesión</span>';
-      } else {
-        authForm.title.textContent = "Iniciar Sesión";
-        if (btnSpan) btnSpan.textContent = "INGRESAR";
-        authForm.toggleMsg.innerHTML = '¿No tienes cuenta? <span id="auth-toggle-link">Regístrate</span>';
-      }
-      
-      // Re-bind the click event
-      document.getElementById("auth-toggle-link").addEventListener("click", () => {
-        authForm.toggleLink.click();
-      });
-    }, 150);
-
-    setTimeout(() => {
-      card.classList.remove("card-swap-anim");
-    }, 300);
-
+  authForm.tabLogin?.addEventListener("click", () => {
+    setAuthMode(false);
     audioSystem.playTap();
+  });
+
+  authForm.tabRegister?.addEventListener("click", () => {
+    setAuthMode(true);
+    audioSystem.playTap();
+  });
+
+  authForm.passwordToggle?.addEventListener("click", () => {
+    const input = authForm.passwordInput;
+    const showing = input.type === "text";
+    input.type = showing ? "password" : "text";
+    if (authForm.confirmInput) authForm.confirmInput.type = input.type;
+    authForm.passwordToggle.querySelector(".eye-open")?.classList.toggle("hidden", !showing);
+    authForm.passwordToggle.querySelector(".eye-closed")?.classList.toggle("hidden", showing);
+    authForm.passwordToggle.setAttribute("aria-label", showing ? "Mostrar contraseña" : "Ocultar contraseña");
+  });
+
+  authForm.passwordInput?.addEventListener("input", updatePasswordStrength);
+
+  const submitOnEnter = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      authForm.submitBtn.click();
+    }
+  };
+  [authForm.usernameInput, authForm.passwordInput, authForm.confirmInput].forEach((input) => {
+    input?.addEventListener("keydown", submitOnEnter);
   });
 
   authForm.submitBtn.addEventListener("click", async () => {
     const username = authForm.usernameInput.value.trim();
     const password = authForm.passwordInput.value;
+    const confirm = authForm.confirmInput?.value || "";
 
-    if (!username || !password) {
-      alert("Por favor completa todos los campos.");
+    showAuthError("");
+
+    if (!username || !password || (isRegisterMode && !confirm)) {
+      showAuthError("Completa todos los campos.");
+      return;
+    }
+    if (isRegisterMode && password !== confirm) {
+      showAuthError("Las contraseñas no coinciden.");
       return;
     }
 
     const btnSpan = authForm.submitBtn.querySelector("span");
     authForm.submitBtn.disabled = true;
-    if (btnSpan) btnSpan.textContent = "PROCESANDO...";
+    if (btnSpan) btnSpan.textContent = "Un momento…";
 
     try {
+      localStorage.setItem(LAST_USERNAME_KEY, username);
       if (isRegisterMode) {
         await authSystem.register(username, password);
       } else {
         await authSystem.login(username, password);
       }
     } catch (e) {
-      alert(e.message);
+      showAuthError(mapAuthError(e));
       authForm.submitBtn.disabled = false;
-      if (btnSpan) btnSpan.textContent = isRegisterMode ? "REGISTRARSE" : "INGRESAR";
+      if (btnSpan) btnSpan.textContent = isRegisterMode ? "Crear cuenta" : "Entrar";
     }
   });
 }
@@ -317,61 +450,76 @@ function setupLobbyHandlers() {
   lobbyUI.soundBtn.addEventListener("click", () => {
     const enabled = audioSystem.toggleSound();
     lobbyUI.soundBtn.classList.toggle("muted", !enabled);
+    if (lobbyUI.soundLabel) lobbyUI.soundLabel.textContent = enabled ? "Sonido" : "Silencio";
     audioSystem.playTap();
   });
 
-  // Add Friend Handler
+  lobbyUI.addFriendInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      lobbyUI.addFriendBtn.click();
+    }
+  });
+
   lobbyUI.addFriendBtn.addEventListener("click", async () => {
     const friendUsername = lobbyUI.addFriendInput.value.trim();
     if (!friendUsername) {
-      alert("Por favor ingresa un nombre de usuario.");
+      showToast("Escribe un nombre de usuario.", "error");
       return;
     }
     
     lobbyUI.addFriendBtn.disabled = true;
     const origText = lobbyUI.addFriendBtn.textContent;
-    lobbyUI.addFriendBtn.textContent = "...";
+    lobbyUI.addFriendBtn.textContent = "…";
     
     try {
       await authSystem.addFriend(currentUser, friendUsername);
       lobbyUI.addFriendInput.value = "";
-      alert(`¡${friendUsername} ha sido agregado a tus amigos!`);
+      showToast(`${friendUsername} añadido a amigos.`, "success");
       
-      // Refresh cache and render list
       const updatedStats = await authSystem.getUserStats(currentUser.uid);
       if (updatedStats) {
         currentUser = updatedStats;
         renderFriendsList();
       }
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     } finally {
       lobbyUI.addFriendBtn.disabled = false;
       lobbyUI.addFriendBtn.textContent = origText;
     }
   });
 
-  // Logout
   lobbyUI.logoutBtn.addEventListener("click", () => {
+    audioSystem.playTap();
     authSystem.logout();
+  });
+}
+
+function setupAccountHandlers() {
+  lobbyUI.accountToggle?.addEventListener("click", () => {
+    const open = lobbyUI.accountCard.classList.toggle("open");
+    lobbyUI.accountToggle.setAttribute("aria-expanded", String(open));
     audioSystem.playTap();
   });
 }
 
 function updateLobbyProfileUI(userData) {
-  lobbyUI.profileName.textContent = `${userData.username} (${userData.pp || 1000} PP)`;
-  
-  // Calculate a mock Rank Level based on total wins
+  const username = userData.username || "Jugador";
+  const pp = userData.pp || 1000;
+  if (lobbyUI.profileName) lobbyUI.profileName.textContent = username;
+  if (lobbyUI.profileAvatar) lobbyUI.profileAvatar.textContent = username.charAt(0).toUpperCase();
+  animateNumber(lobbyUI.profilePp, pp);
+
   const wins = userData.totalWins || 0;
-  let rank = "RECLUTA";
-  if (wins >= 50) rank = "LEYENDA ELITE";
-  else if (wins >= 25) rank = "MAESTRO TÁCTICO";
-  else if (wins >= 10) rank = "ESPECIALISTA";
-  else if (wins >= 3) rank = "VETERANO DE COMBATE";
-  
-  lobbyUI.profileLevel.textContent = `Rango: ${rank}`;
-  
-  // Calculate Gamer Level and XP Progress bar
+  let rank = "Recluta";
+  if (wins >= 50) rank = "Leyenda";
+  else if (wins >= 25) rank = "Maestro";
+  else if (wins >= 10) rank = "Especialista";
+  else if (wins >= 3) rank = "Veterano";
+
+  if (lobbyUI.profileLevel) lobbyUI.profileLevel.textContent = `Rango · ${rank}`;
+
   const levelNum = Math.floor(wins / 3) + 1;
   const winsInCurrentLevel = wins % 3;
   const xpPercentage = (winsInCurrentLevel / 3) * 100;
@@ -380,13 +528,14 @@ function updateLobbyProfileUI(userData) {
   const xpTextEl = document.getElementById("gamer-xp-text");
   const xpFillEl = document.getElementById("gamer-xp-fill");
 
-  if (levelNumEl) levelNumEl.textContent = `NIVEL ${levelNum}`;
-  if (xpTextEl) xpTextEl.textContent = `${winsInCurrentLevel}/3 Victorias`;
+  if (levelNumEl) levelNumEl.textContent = String(levelNum);
+  if (xpTextEl) xpTextEl.textContent = `${winsInCurrentLevel} / 3`;
   if (xpFillEl) xpFillEl.style.width = `${xpPercentage}%`;
+  if (lobbyUI.accountSince) lobbyUI.accountSince.textContent = formatMemberSince(userData.createdAt);
 
-  lobbyUI.highScore.textContent = userData.highScoreScoreMode || 0;
-  lobbyUI.totalWins.textContent = wins;
-  
+  animateNumber(lobbyUI.highScore, userData.highScoreScoreMode || 0);
+  animateNumber(lobbyUI.totalWins, wins);
+
   lobbyUI.playedScore.textContent = userData.gamesPlayedScoreMode || 0;
   lobbyUI.winsScore.textContent = userData.winsScoreMode || 0;
   lobbyUI.lossesScore.textContent = userData.lossesScoreMode || 0;
@@ -394,6 +543,10 @@ function updateLobbyProfileUI(userData) {
   lobbyUI.playedSudden.textContent = userData.gamesPlayedSuddenDeath || 0;
   lobbyUI.winsSudden.textContent = userData.winsSuddenDeath || 0;
   lobbyUI.lossesSudden.textContent = userData.lossesSuddenDeath || 0;
+
+  const soundOn = audioSystem.isSoundEnabled();
+  if (lobbyUI.soundBtn) lobbyUI.soundBtn.classList.toggle("muted", !soundOn);
+  if (lobbyUI.soundLabel) lobbyUI.soundLabel.textContent = soundOn ? "Sonido" : "Silencio";
 }
 
 // 3. WAITING SCREEN LOGIC
@@ -440,7 +593,7 @@ function setupWaitingHandlers() {
   waitingUI.copyBtn.addEventListener("click", () => {
     const code = waitingUI.roomCodeVal.textContent;
     navigator.clipboard.writeText(code).then(() => {
-      alert(`¡Código ${code} copiado al portapapeles!`);
+      showToast(`Código ${code} copiado.`);
     });
     audioSystem.playTap();
   });
@@ -567,6 +720,11 @@ function setupLocalGameState(payload) {
   gameState.isGameOver = false;
   gameState.rematchRequested = false;
   gameState.opponentRematchRequested = false;
+  if (gameoverUI.rematchBtn) {
+    gameoverUI.rematchBtn.disabled = false;
+    gameoverUI.rematchBtn.textContent = "Jugar de nuevo";
+  }
+  if (gameoverUI.rematchStatus) gameoverUI.rematchStatus.textContent = "";
 
   // Determine our role
   gameState.playerRole = (currentUser.username === gameState.p1Username) ? "host" : "guest";
@@ -1237,15 +1395,20 @@ async function triggerGameOver(winner, loser, reason) {
   const isWinner = (winner === currentUser.username);
   const isDraw = (winner === "draw");
 
+  if (gameoverUI.pp) {
+    gameoverUI.pp.textContent = "";
+    gameoverUI.pp.className = "outcome-pp";
+  }
+
   if (isDraw) {
-    gameoverUI.title.textContent = "¡EMPATE!";
-    gameoverUI.title.style.color = "var(--combo-gold)";
-    gameoverUI.title.style.textShadow = "0 0 20px var(--combo-gold-glow)";
-    gameoverUI.reason.textContent = "Ambos jugadores obtuvieron la misma puntuación.";
+    gameoverUI.title.textContent = "Empate";
+    gameoverUI.title.style.color = "var(--gold)";
+    gameoverUI.title.style.textShadow = "none";
+    gameoverUI.reason.textContent = "Misma puntuación.";
   } else if (isWinner) {
-    gameoverUI.title.textContent = "¡VICTORIA!";
-    gameoverUI.title.style.color = "var(--p1-cyan)";
-    gameoverUI.title.style.textShadow = "0 0 20px var(--p1-cyan-glow)";
+    gameoverUI.title.textContent = "Victoria";
+    gameoverUI.title.style.color = "var(--p1)";
+    gameoverUI.title.style.textShadow = "none";
     
     if (reason === "no_moves") {
       gameoverUI.reason.textContent = loser === currentUser.username ? "Te quedaste sin movimientos pero superaste en puntos." : "El oponente se quedó sin movimientos posibles.";
@@ -1253,9 +1416,9 @@ async function triggerGameOver(winner, loser, reason) {
       gameoverUI.reason.textContent = "El oponente se desconectó de la partida.";
     }
   } else {
-    gameoverUI.title.textContent = "¡DERROTA!";
-    gameoverUI.title.style.color = "var(--p2-pink)";
-    gameoverUI.title.style.textShadow = "0 0 20px var(--p2-pink-glow)";
+    gameoverUI.title.textContent = "Derrota";
+    gameoverUI.title.style.color = "var(--p2)";
+    gameoverUI.title.style.textShadow = "none";
     
     if (gameState.mode === "sudden_death") {
       gameoverUI.reason.textContent = "Te quedaste sin movimientos posibles.";
@@ -1293,7 +1456,10 @@ async function triggerGameOver(winner, loser, reason) {
     
     // Append Elo change text to game over reason
     const changeSign = ppChange >= 0 ? "+" : "";
-    gameoverUI.reason.innerHTML += `<br><span style="color: ${ppChange >= 0 ? 'var(--cyber-green)' : 'var(--p2-pink)'}; font-weight: 800; font-size: 0.9rem;">PP: ${currentUser.pp || 1000} → ${newPP} (${changeSign}${ppChange})</span>`;
+    if (gameoverUI.pp) {
+      gameoverUI.pp.textContent = `PP ${myPP} → ${newPP} (${changeSign}${ppChange})`;
+      gameoverUI.pp.className = `outcome-pp ${ppChange >= 0 ? "up" : "down"}`;
+    }
   } catch (err) {
     console.error("Error calculating Elo:", err);
   }
@@ -1394,7 +1560,7 @@ function updateRematchUI() {
   } else if (gameState.rematchRequested) {
     gameoverUI.rematchStatus.textContent = "Esperando al oponente...";
     gameoverUI.rematchBtn.disabled = true;
-    gameoverUI.rematchBtn.textContent = "PENDIENTE";
+    gameoverUI.rematchBtn.textContent = "Pendiente";
   } else if (gameState.opponentRematchRequested) {
     gameoverUI.rematchStatus.textContent = "¡El oponente quiere revancha!";
   }
@@ -1582,12 +1748,12 @@ async function sendInviteToFriend(friendUsername) {
         console.log("[App] Invitation accepted. Starting WebSocket game...");
         cleanupSentInviteListener();
       } else if (updatedInvite.status === "declined") {
-        alert(`${friendUsername} rechazó tu invitación.`);
+        showToast(`${friendUsername} rechazó la invitación.`);
         cancelWaitingRoom();
       }
     });
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, "error");
     cancelWaitingRoom();
   }
 }
@@ -1672,7 +1838,7 @@ async function renderFriendsList() {
     });
     
     row.querySelector(".friend-btn-remove").addEventListener("click", async () => {
-      if (confirm(`¿Estás seguro de eliminar a ${friendName} de tus amigos?`)) {
+      if (confirm(`¿Eliminar a ${friendName} de amigos?`)) {
         audioSystem.playTap();
         try {
           await authSystem.removeFriend(currentUser, friendName);
@@ -1682,7 +1848,7 @@ async function renderFriendsList() {
             renderFriendsList();
           }
         } catch (err) {
-          alert(err.message);
+          showToast(err.message, "error");
         }
       }
     });
@@ -1691,47 +1857,88 @@ async function renderFriendsList() {
   }
 }
 
-// 10. PP TICKER SCROLLER FUNCTIONS
+// 10. PP RANKING DROPDOWN
 
-async function updatePPTicker() {
+function setupRankingHandlers() {
+  const toggle = document.getElementById("pp-ranking-toggle");
+  const ranking = document.getElementById("pp-ranking");
+  if (!toggle || !ranking) return;
+  toggle.addEventListener("click", () => {
+    const open = ranking.classList.toggle("open");
+    toggle.setAttribute("aria-expanded", String(open));
+    audioSystem.playTap();
+    if (open) updatePPRanking();
+  });
+}
+
+function closeRanking() {
+  const ranking = document.getElementById("pp-ranking");
+  const toggle = document.getElementById("pp-ranking-toggle");
+  ranking?.classList.remove("open");
+  toggle?.setAttribute("aria-expanded", "false");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+async function updatePPRanking() {
   if (!currentUser) return;
+  const preview = document.getElementById("pp-ranking-preview");
+  const list = document.getElementById("pp-ranking-list");
   try {
-    const topPlayers = await authSystem.getTopPlayers();
-    const tickerEl = document.getElementById("global-pp-ticker");
-    if (!tickerEl) return;
-    
-    if (topPlayers.length === 0) {
-      tickerEl.innerHTML = `
-        <div class="ticker-title">PP RANKING</div>
-        <div class="ticker-wrap">
-          <div class="ticker-move">
-            <span class="ticker-text">No hay clasificaciones disponibles.</span>
-          </div>
-        </div>
-      `;
+    const { players, rank } = await authSystem.getLeaderboard(currentUser);
+    const myPP = currentUser.pp || 1000;
+
+    if (preview) {
+      preview.textContent = rank
+        ? `#${rank} · ${myPP} PP`
+        : `${myPP} PP`;
+    }
+
+    if (!list) return;
+
+    if (!players.length) {
+      list.innerHTML = '<div class="pp-ranking-empty">Aún no hay clasificaciones.</div>';
       return;
     }
-    
-    const tickerText = topPlayers.map((p, idx) => `${idx + 1}. ${p.username} (${p.pp || 1000} PP)`).join("   •   ");
-    
-    tickerEl.innerHTML = `
-      <div class="ticker-title">PP RANKING</div>
-      <div class="ticker-wrap">
-        <div class="ticker-move">
-          <span class="ticker-text">${tickerText}</span>
-          <span class="ticker-text">${tickerText}</span>
+
+    const rows = players.map((player, idx) => {
+      const pos = idx + 1;
+      const medal = pos === 1 ? "gold" : pos === 2 ? "silver" : pos === 3 ? "bronze" : "";
+      const isMe = player.uid === currentUser.uid || player.username === currentUser.username;
+      return `
+        <div class="pp-rank-row ${medal} ${isMe ? "me" : ""}">
+          <span class="pp-rank-pos">${pos}</span>
+          <span class="pp-rank-name">${escapeHtml(player.username)}</span>
+          <span class="pp-rank-pp">${player.pp || 1000}</span>
         </div>
-      </div>
-    `;
+      `;
+    }).join("");
+
+    const youRow = rank && rank > players.length
+      ? `<div class="pp-rank-you">Tu puesto: #${rank} · ${myPP} PP</div>`
+      : "";
+
+    list.innerHTML = rows + youRow;
   } catch (err) {
-    console.error("Error updating ticker:", err);
+    console.error("Error updating ranking:", err);
+    if (list) list.innerHTML = '<div class="pp-ranking-empty">No se pudo cargar el ranking.</div>';
   }
+}
+
+async function updatePPTicker() {
+  return updatePPRanking();
 }
 
 function startTickerTimer() {
   stopTickerTimer();
-  updatePPTicker();
-  tickerInterval = setInterval(updatePPTicker, 30000); // Refresh every 30s
+  updatePPRanking();
+  tickerInterval = setInterval(updatePPRanking, 30000);
 }
 
 function stopTickerTimer() {

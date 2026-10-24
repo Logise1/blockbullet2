@@ -3,349 +3,309 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Block Bullet - 2 Jugadores</title>
-  <!-- Google Sans / Product Sans Web Fonts -->
+  <title>Block Bullet</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mortezaom/google-sans-cdn@master/fonts.css">
-  <!-- Main Stylesheet -->
+  <link href="https://fonts.cdnfonts.com/css/google-sans" rel="stylesheet">
   <link rel="stylesheet" href="index.css">
-  
-  <!-- PWA Manifest & Meta Tags -->
+
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#00f5ff">
+  <meta name="theme-color" content="#0b0b0c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="icon.png">
 </head>
 <body>
 
-  <!-- Floating invite notifications container -->
+  <div id="toast-container" class="toast-container"></div>
   <div id="invite-notification-container" class="invite-notification-container"></div>
 
-  <!-- PWA Install Banner -->
-  <div id="pwa-install-banner" class="pwa-install-banner hidden glass-card">
+  <div id="pwa-install-banner" class="pwa-install-banner hidden">
     <div class="pwa-install-info">
-      <img src="icon.png" alt="Icon" class="pwa-install-icon">
+      <img src="icon.png" alt="Block Bullet" class="pwa-install-icon">
       <div class="pwa-install-text">
-        <strong>Block Bullet 2</strong>
-        <span>Juega en pantalla completa y con mejor rendimiento.</span>
+        <strong>Block Bullet</strong>
+        <span>Instálalo para jugar a pantalla completa.</span>
       </div>
     </div>
     <div class="pwa-install-actions">
       <button id="pwa-install-decline" class="btn text-btn">Ahora no</button>
-      <button id="pwa-install-accept" class="btn primary-btn btn-glow">INSTALAR</button>
+      <button id="pwa-install-accept" class="btn primary-btn">Instalar</button>
     </div>
   </div>
 
-  <!-- Floating particles background -->
-  <div class="bg-effects">
-    <div class="glow-orb orb-1"></div>
-    <div class="glow-orb orb-2"></div>
-  </div>
-
   <div class="app-container">
-    
-    <!-- 1. AUTH SCREEN -->
+
+    <!-- 1. AUTH -->
     <section id="auth-view" class="view active">
       <div class="brand-header">
-        <div class="animated-logo-blocks">
-          <div class="logo-block block-cyan"></div>
-          <div class="logo-block block-pink"></div>
-          <div class="logo-block block-yellow"></div>
-          <div class="logo-block block-green"></div>
+        <div class="animated-logo-blocks" aria-hidden="true">
+          <div class="logo-block block-a"></div>
+          <div class="logo-block block-b"></div>
+          <div class="logo-block block-c"></div>
+          <div class="logo-block block-d"></div>
         </div>
-        <h1 class="logo-text">BLOCK<br><span class="accent-text">BULLET</span></h1>
-        <p class="subtitle">Duelo de Bloques Multijugador</p>
+        <h1 class="logo-text">Block Bullet</h1>
+        <p class="subtitle">Duelo de bloques</p>
       </div>
 
-      <div class="glass-card auth-card">
-        <h2 id="auth-title" class="card-title">Iniciar Sesión</h2>
-        
+      <div class="surface-card auth-card">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" id="auth-tab-login" class="auth-tab active" role="tab" aria-selected="true">Entrar</button>
+          <button type="button" id="auth-tab-register" class="auth-tab" role="tab" aria-selected="false">Crear cuenta</button>
+          <span class="auth-tab-indicator" id="auth-tab-indicator"></span>
+        </div>
+
+        <h2 id="auth-title" class="sr-only">Iniciar sesión</h2>
+
         <div class="input-group">
-          <label for="auth-username">Nombre de Usuario</label>
+          <label for="auth-username">Usuario</label>
           <div class="input-wrapper">
-            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <input type="text" id="auth-username" placeholder="Ej: PlayerOne" autocomplete="off" maxlength="15">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <input type="text" id="auth-username" placeholder="Tu nombre" autocomplete="username" maxlength="15" spellcheck="false">
           </div>
         </div>
-        
+
         <div class="input-group">
           <label for="auth-password">Contraseña</label>
           <div class="input-wrapper">
-            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+            <button type="button" id="auth-password-toggle" class="input-action" aria-label="Mostrar contraseña">
+              <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.77 21.77 0 0 1-2.16 3.19M1 1l22 22"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/></svg>
+            </button>
+          </div>
+          <div id="auth-password-strength" class="password-strength hidden">
+            <div class="password-strength-bar"><span id="auth-strength-fill"></span></div>
+            <span id="auth-strength-label">Débil</span>
           </div>
         </div>
 
-        <button id="auth-submit-btn" class="btn primary-btn btn-glow">
-          <span>INGRESAR</span>
-          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </button>
-        
-        <div class="auth-toggle">
-          <p id="auth-toggle-msg">¿No tienes cuenta? <span id="auth-toggle-link">Regístrate</span></p>
+        <div class="input-group hidden" id="auth-confirm-group">
+          <label for="auth-confirm-password">Confirmar contraseña</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="auth-confirm-password" placeholder="Repite la contraseña" autocomplete="new-password">
+          </div>
         </div>
+
+        <p id="auth-error" class="form-error hidden" role="alert"></p>
+
+        <button id="auth-submit-btn" class="btn primary-btn">
+          <span>Entrar</span>
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+
+        <p class="auth-hint" id="auth-toggle-msg">Tu sesión se guarda en este dispositivo.</p>
+        <span id="auth-toggle-link" class="hidden"></span>
       </div>
 
-      <!-- Firebase Configuration Alert (shown if config is not updated) -->
       <div id="fb-warning" class="warning-banner hidden">
-        <p>⚠️ <strong>Falta configuración de Firebase</strong></p>
-        <p>Por favor coloca tus credenciales en <code>config.js</code> para activar las cuentas y base de datos.</p>
+        <p>Falta configurar Firebase en <code>config.js</code> para activar las cuentas.</p>
       </div>
     </section>
 
-    <!-- 2. LOBBY SCREEN -->
+    <!-- 2. LOBBY -->
     <section id="lobby-view" class="view">
-      <!-- Top profile section (Gamified Header) -->
-      <div class="gamer-card glass-card">
-        <div class="gamer-profile">
-            <div class="avatar-container">
-              <div class="avatar-ring"></div>
-              <div class="avatar-emoji">
-                <svg class="avatar-crest-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; color: var(--p1-cyan);">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
+      <div class="account-card surface-card" id="account-card">
+        <button type="button" class="account-main" id="account-toggle" aria-expanded="false">
+          <div class="avatar" id="profile-avatar">B</div>
+          <div class="account-meta">
+            <h2 id="profile-name" class="profile-username">Cargando</h2>
+            <span id="profile-level" class="rank-badge">Rango · Recluta</span>
+          </div>
+          <div class="account-pp-wrap">
+            <span class="account-pp-label">PP</span>
+            <span id="profile-pp" class="account-pp">1000</span>
+          </div>
+          <svg class="account-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="account-sheet" id="account-sheet">
+          <div class="account-sheet-inner">
+            <div class="account-details">
+              <div class="account-detail">
+                <span>Nivel</span>
+                <strong id="gamer-level-num">1</strong>
+              </div>
+              <div class="account-detail">
+                <span>Progreso</span>
+                <strong id="gamer-xp-text">0 / 3</strong>
+              </div>
+              <div class="account-detail">
+                <span>Miembro</span>
+                <strong id="account-since">—</strong>
               </div>
             </div>
-            <div class="gamer-info">
-              <h2 id="profile-name" class="profile-username">Cargando...</h2>
-              <div class="rank-badge">
-                <span id="profile-level">Rango: Recluta</span>
-              </div>
+            <div class="xp-bar-bg">
+              <div class="xp-bar-fill" id="gamer-xp-fill" style="width: 0%"></div>
             </div>
-            <div class="header-controls">
-              <button id="sound-toggle-btn" class="icon-btn" title="Silenciar Sonido">
-                <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
-                  <path d="M11 5L6 9H2v6h4l5 4V5z"/>
-                  <path class="volume-waves" d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/>
-                </svg>
+            <div class="account-actions">
+              <button id="sound-toggle-btn" class="btn ghost-btn" title="Sonido">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path class="volume-waves" d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                <span id="sound-toggle-label">Sonido</span>
               </button>
+              <button id="lobby-logout-btn" class="btn ghost-btn danger-btn">Cerrar sesión</button>
             </div>
-        </div>
-        
-        <!-- Experience Level Bar -->
-        <div class="xp-container">
-          <div class="xp-label-row">
-            <span class="xp-level-text" id="gamer-level-num">NIVEL 1</span>
-            <span class="xp-progress-text" id="gamer-xp-text">0/3 Victorias</span>
-          </div>
-          <div class="xp-bar-bg">
-            <div class="xp-bar-fill" id="gamer-xp-fill" style="width: 0%"></div>
           </div>
         </div>
       </div>
 
-      <!-- Quick Stats Grid (Trophy & Medal SVG icons) -->
       <div class="lobby-stats-container">
-        <div class="lobby-stat-card glass-card stat-high-score">
-          <div class="stat-icon-wrapper gold-glow">
-            <svg class="stat-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a4 4 0 0 1 4 4v7.5a4 4 0 0 1-4 4 4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z"/></svg>
-          </div>
-          <div class="stat-card-info">
-            <span class="stat-value" id="stat-high-score">0</span>
-            <span class="stat-label">Mejor Puntuación</span>
-          </div>
+        <div class="stat-tile surface-card">
+          <span class="stat-label">Mejor puntuación</span>
+          <span class="stat-value" id="stat-high-score">0</span>
         </div>
-
-        <div class="lobby-stat-card glass-card stat-total-wins">
-          <div class="stat-icon-wrapper cyan-glow">
-            <svg class="stat-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
-          </div>
-          <div class="stat-card-info">
-            <span class="stat-value" id="stat-total-wins">0</span>
-            <span class="stat-label">Victorias Totales</span>
-          </div>
+        <div class="stat-tile surface-card">
+          <span class="stat-label">Victorias</span>
+          <span class="stat-value" id="stat-total-wins">0</span>
         </div>
       </div>
 
-      <!-- Compact Duel Stats History -->
-      <div class="history-panel glass-card">
-        <h3 class="panel-section-title">Historial de Duelos</h3>
-        
+      <div class="history-panel surface-card">
+        <h3 class="panel-section-title">Historial</h3>
         <div class="mode-history-row">
           <div class="mode-history-header">
-            <span class="history-mode-title">
-              <svg class="history-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--combo-gold);">
-                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-              </svg>Modo Puntaje
-            </span>
+            <span class="history-mode-title">Puntaje</span>
             <span class="history-mode-plays"><span id="stat-played-score">0</span> partidas</span>
           </div>
           <div class="history-win-loss-bar">
-            <div class="win-tag">W: <span id="stat-wins-score">0</span></div>
-            <div class="loss-tag">L: <span id="stat-losses-score">0</span></div>
+            <div class="win-tag">W <span id="stat-wins-score">0</span></div>
+            <div class="loss-tag">L <span id="stat-losses-score">0</span></div>
           </div>
         </div>
-
         <div class="mode-history-row">
           <div class="mode-history-header">
-            <span class="history-mode-title">
-              <svg class="history-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; display: inline-block; vertical-align: middle; margin-right: 4px; color: var(--p2-pink);">
-                <path d="M4 10a8 8 0 0 1 16 0c0 4.5-3.5 7-3.5 7H7.5S4 14.5 4 10z"/>
-                <path d="M8 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM16 12a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/>
-                <path d="M12 14v3"/>
-                <path d="M10 20h4"/>
-              </svg>Muerte Súbita
-            </span>
+            <span class="history-mode-title">Muerte súbita</span>
             <span class="history-mode-plays"><span id="stat-played-sudden">0</span> partidas</span>
           </div>
           <div class="history-win-loss-bar">
-            <div class="win-tag">W: <span id="stat-wins-sudden">0</span></div>
-            <div class="loss-tag">L: <span id="stat-losses-sudden">0</span></div>
+            <div class="win-tag">W <span id="stat-wins-sudden">0</span></div>
+            <div class="loss-tag">L <span id="stat-losses-sudden">0</span></div>
           </div>
         </div>
       </div>
 
-      <!-- Game Mode Selection (Two Big Mode Buttons) -->
       <div class="lobby-play-modes">
-        <button id="play-mode-score-btn" class="btn play-mode-card score-mode-card">
-          <div class="mode-card-glow"></div>
-          <svg class="mode-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-          <div class="mode-card-info">
-            <span class="mode-card-title">MODO PUNTAJE</span>
-            <span class="mode-card-desc">Limpia líneas y acumula puntos. ¡Supera a tu rival!</span>
-          </div>
+        <button id="play-mode-score-btn" class="play-mode-card score-mode-card">
+          <span class="mode-card-kicker">Clásico</span>
+          <span class="mode-card-title">Modo puntaje</span>
+          <span class="mode-card-desc">Limpia líneas y supera a tu rival.</span>
         </button>
-
-        <button id="play-mode-sudden-btn" class="btn play-mode-card sudden-mode-card">
-          <div class="mode-card-glow"></div>
-          <svg class="mode-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 10a8 8 0 0 1 16 0c0 4.5-3.5 7-3.5 7H7.5S4 14.5 4 10z"/><circle cx="9" cy="10" r="1.5"/><circle cx="15" cy="10" r="1.5"/></svg>
-          <div class="mode-card-info">
-            <span class="mode-card-title">MUERTE SÚBITA</span>
-            <span class="mode-card-desc">Coloca bloques con cuidado. ¡El que se bloquee, pierde!</span>
-          </div>
+        <button id="play-mode-sudden-btn" class="play-mode-card sudden-mode-card">
+          <span class="mode-card-kicker">Extremo</span>
+          <span class="mode-card-title">Muerte súbita</span>
+          <span class="mode-card-desc">El que se bloquee, pierde.</span>
         </button>
       </div>
-
-      <button id="lobby-logout-btn" class="btn text-btn logout-link">Cerrar Sesión</button>
     </section>
 
-    <!-- 2.5. FRIENDS SCREEN -->
+    <!-- 2.5 FRIENDS -->
     <section id="friends-view" class="view">
       <div class="friends-header-row">
-        <button id="friends-back-btn" class="icon-btn" title="Volver al Menú">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width: 18px; height: 18px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <button id="friends-back-btn" class="icon-btn" title="Volver" aria-label="Volver">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         </button>
         <div class="friends-selected-mode-badge" id="friends-selected-mode">Modo: Puntaje</div>
       </div>
 
-      <!-- Friends Panel -->
-      <div class="friends-panel glass-card">
-        <h3 class="panel-section-title">Elegir Amigo</h3>
+      <div class="friends-panel surface-card">
+        <h3 class="panel-section-title">Elegir amigo</h3>
         <div class="friends-list" id="friends-list">
-          <div class="friends-empty-msg">No has agregado amigos todavía.</div>
+          <div class="friends-empty-msg">Aún no tienes amigos.</div>
         </div>
 
-        <h3 class="panel-section-title" style="margin-top: 20px;">Añadir Amigos</h3>
+        <h3 class="panel-section-title add-friend-title">Añadir amigo</h3>
         <div class="add-friend-form">
           <div class="input-wrapper">
-            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>
-            <input type="text" id="add-friend-input" placeholder="Nombre de usuario..." maxlength="15" autocomplete="off">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M17 11h6"/></svg>
+            <input type="text" id="add-friend-input" placeholder="Nombre de usuario" maxlength="15" autocomplete="off">
           </div>
-          <button id="add-friend-btn" class="btn primary-btn">AGREGAR</button>
+          <button id="add-friend-btn" class="btn primary-btn">Añadir</button>
         </div>
       </div>
     </section>
 
-    <!-- 3. WAITING SCREEN -->
+    <!-- 3. WAITING -->
     <section id="waiting-view" class="view">
-      <div class="glass-card waiting-card">
-        <h2 id="waiting-title">Sala de Espera</h2>
-        <p id="waiting-subtitle" class="waiting-subtitle">Comparte este código con tu oponente para jugar</p>
-        
+      <div class="surface-card waiting-card">
+        <h2 id="waiting-title">Sala de espera</h2>
+        <p id="waiting-subtitle" class="waiting-subtitle">Comparte el código para empezar.</p>
+
         <div id="waiting-room-code-section" class="room-code-display">
           <span id="room-code-val">-----</span>
-          <button id="copy-code-btn" class="icon-btn" title="Copiar Código">
-            <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
+          <button id="copy-code-btn" class="icon-btn" title="Copiar código" aria-label="Copiar código">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
           </button>
         </div>
 
         <div class="players-lobby-list">
           <div class="lobby-player-row host-row">
             <span class="player-dot dot-online"></span>
-            <span id="lobby-host-name">Jugador 1 (Anfitrión)</span>
+            <span id="lobby-host-name">Jugador 1</span>
             <span class="player-role-badge">P1</span>
           </div>
           <div class="lobby-player-row guest-row">
             <span id="lobby-guest-dot" class="player-dot dot-offline"></span>
-            <span id="lobby-guest-name">Esperando oponente...</span>
+            <span id="lobby-guest-name">Esperando oponente…</span>
             <span class="player-role-badge">P2</span>
           </div>
         </div>
 
         <div class="waiting-loader">
           <div class="loader-pulse"></div>
-          <p id="waiting-status-text">Buscando oponente en el servidor...</p>
+          <p id="waiting-status-text">Buscando oponente…</p>
         </div>
 
-        <button id="cancel-waiting-btn" class="btn outline-btn">Salir de la Sala</button>
+        <button id="cancel-waiting-btn" class="btn outline-btn">Salir de la sala</button>
       </div>
     </section>
 
-    <!-- 4. GAME SCREEN -->
+    <!-- 4. GAME -->
     <section id="game-view" class="view">
-      <!-- Game HUD -->
-      <div class="game-hud glass-card">
-        <!-- Player 1 (Left) -->
+      <div class="game-hud surface-card">
         <div class="hud-player" id="hud-p1">
-          <div class="hud-player-name">Player 1</div>
+          <div class="hud-player-name">Jugador 1</div>
           <div class="hud-score-row">
             <span class="hud-score-val" id="p1-score">0</span>
-            <span class="hud-streak-badge hidden" id="p1-streak">1 🔥</span>
+            <span class="hud-streak-badge hidden" id="p1-streak">1</span>
           </div>
         </div>
 
-        <!-- VS & Turn Indicator (Center) -->
         <div class="hud-center">
           <span id="game-mode-badge" class="mode-badge">Puntaje</span>
-          <div id="turn-indicator" class="turn-badge your-turn">TU TURNO</div>
+          <div id="turn-indicator" class="turn-badge your-turn">Tu turno</div>
         </div>
 
-        <!-- Player 2 (Right) -->
         <div class="hud-player" id="hud-p2">
-          <div class="hud-player-name">Player 2</div>
+          <div class="hud-player-name">Jugador 2</div>
           <div class="hud-score-row">
             <span class="hud-score-val" id="p2-score">0</span>
-            <span class="hud-streak-badge hidden" id="p2-streak">1 🔥</span>
+            <span class="hud-streak-badge hidden" id="p2-streak">1</span>
           </div>
         </div>
       </div>
 
-      <!-- Game Board container -->
       <div class="board-container">
-        <!-- Text Alert Notification Layer (Combos, Streaks) -->
         <div id="game-alerts" class="game-alerts-layer"></div>
-        
-        <div id="game-board" class="game-board">
-          <!-- 64 cells populated via JS -->
-        </div>
+        <div id="game-board" class="game-board"></div>
       </div>
 
-      <!-- Piece Trays Section -->
       <div class="trays-section">
-        <!-- Your draggable pieces -->
         <div class="tray-container active-tray">
-          <span class="tray-label">TUS PIEZAS</span>
+          <span class="tray-label">Tus piezas</span>
           <div class="piece-tray" id="your-piece-tray">
             <div class="piece-slot" id="my-slot-0"></div>
             <div class="piece-slot" id="my-slot-1"></div>
             <div class="piece-slot" id="my-slot-2"></div>
           </div>
         </div>
-
-
       </div>
 
-      <!-- Floating Emoji Reactions Panel -->
-      <div class="reactions-panel glass-card">
-        <button id="reaction-toggle" class="reaction-btn" title="Reacciones">
-          <svg class="hud-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px; color: var(--text-secondary);">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-          </svg>
+      <div class="reactions-panel">
+        <button id="reaction-toggle" class="reaction-btn" title="Reacciones" aria-label="Reacciones">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
         </button>
         <div class="reaction-options hidden" id="reaction-options">
           <button class="emoji-react-btn" data-emoji="😂">😂</button>
@@ -356,35 +316,39 @@
           <button class="emoji-react-btn" data-emoji="👑">👑</button>
         </div>
       </div>
-      
-      <!-- Flying emoji container -->
+      <div id="emoji-flight-container" class="emoji-flight-container"></div>
     </section>
 
-    <!-- Global PP Ranking Ticker -->
-    <div id="global-pp-ticker" class="pp-ticker-container">
-      <div class="ticker-title">PP RANKING</div>
-      <div class="ticker-wrap">
-        <div class="ticker-move">
-          <span class="ticker-text">Cargando clasificaciones...</span>
+    <!-- Ranking PP desplegable -->
+    <div id="pp-ranking" class="pp-ranking hidden-ranking">
+      <button type="button" id="pp-ranking-toggle" class="pp-ranking-toggle" aria-expanded="false">
+        <span class="pp-ranking-title">Ranking PP</span>
+        <span id="pp-ranking-preview" class="pp-ranking-preview">Cargando…</span>
+        <svg class="pp-ranking-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg>
+      </button>
+      <div class="pp-ranking-panel" id="pp-ranking-panel">
+        <div class="pp-ranking-panel-inner">
+          <div id="pp-ranking-list" class="pp-ranking-list">
+            <div class="pp-ranking-empty">Cargando clasificaciones…</div>
+          </div>
         </div>
       </div>
     </div>
 
   </div>
 
-  <!-- 5. GAME OVER MODAL -->
   <div id="gameover-modal" class="modal hidden">
-    <div class="modal-content glass-card scale-up">
-      <div class="modal-glow-bg"></div>
-      <h1 id="gameover-result-title" class="outcome-title">¡VICTORIA!</h1>
+    <div class="modal-content surface-card scale-up">
+      <h1 id="gameover-result-title" class="outcome-title">Victoria</h1>
       <p id="gameover-reason" class="outcome-subtitle">El oponente se quedó sin movimientos.</p>
+      <p id="gameover-pp" class="outcome-pp"></p>
 
       <div class="score-comparison">
         <div class="score-card">
           <span class="player-name" id="go-p1-name">Tú</span>
           <span class="player-final-score" id="go-p1-score">0</span>
         </div>
-        <div class="vs-text">VS</div>
+        <span class="vs-text">vs</span>
         <div class="score-card">
           <span class="player-name" id="go-p2-name">Oponente</span>
           <span class="player-final-score" id="go-p2-score">0</span>
@@ -392,15 +356,14 @@
       </div>
 
       <div class="rematch-section">
-        <button id="rematch-btn" class="btn primary-btn btn-glow">JUGAR DE NUEVO</button>
+        <button id="rematch-btn" class="btn primary-btn">Jugar de nuevo</button>
         <p id="rematch-status" class="rematch-status-msg"></p>
       </div>
 
-      <button id="gameover-menu-btn" class="btn outline-btn">Volver al Menú</button>
+      <button id="gameover-menu-btn" class="btn outline-btn">Volver al menú</button>
     </div>
   </div>
 
-  <!-- Load script files as ES Modules -->
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

@@ -20,9 +20,43 @@ import {
   orderBy,
   limit,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  getCountFromServer
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { auth, db, isFirebaseConfigured } from "./firebase-config.js";
+
+export function mapAuthError(error) {
+  const code = error?.code || "";
+  const map = {
+    "auth/email-already-in-use": "Ese nombre ya está en uso.",
+    "auth/invalid-email": "Nombre de usuario no válido.",
+    "auth/weak-password": "La contraseña debe tener al menos 6 caracteres.",
+    "auth/user-not-found": "Usuario o contraseña incorrectos.",
+    "auth/wrong-password": "Usuario o contraseña incorrectos.",
+    "auth/invalid-credential": "Usuario o contraseña incorrectos.",
+    "auth/too-many-requests": "Demasiados intentos. Espera un momento.",
+    "auth/network-request-failed": "Sin conexión. Revisa tu red.",
+    "auth/user-disabled": "Esta cuenta está deshabilitada."
+  };
+  if (map[code]) return map[code];
+  if (error?.message && !String(error.message).startsWith("Firebase")) return error.message;
+  return "No se pudo completar la operación.";
+}
+
+export function validateUsername(username) {
+  const value = (username || "").trim();
+  if (value.length < 3) throw new Error("El usuario debe tener al menos 3 caracteres.");
+  if (value.length > 15) throw new Error("El usuario no puede superar 15 caracteres.");
+  if (!/^[a-zA-Z0-9_]+$/.test(value)) throw new Error("Solo letras, números y _.");
+  return value;
+}
+
+export function validatePassword(password) {
+  if (!password || password.length < 6) {
+    throw new Error("La contraseña debe tener al menos 6 caracteres.");
+  }
+  return password;
+}
 
 // Generate a random room code
 export function generateRoomCode() {
@@ -37,36 +71,29 @@ export function generateRoomCode() {
 export const authSystem = {
   // Check if Firebase is ready
   checkFirebaseReady() {
-    if (!isFirebaseConfigured) {
-      alert("Firebase is not configured! Please configure config.js with your project credentials.");
-      return false;
-    }
-    return true;
+    return isFirebaseConfigured;
   },
 
   // Register user
   async register(username, password) {
-    if (!this.checkFirebaseReady()) return null;
-    
-    username = username.trim();
-    if (username.length < 3) throw new Error("Username must be at least 3 characters.");
-    if (username.includes(" ")) throw new Error("Username cannot contain spaces.");
+    if (!isFirebaseConfigured) {
+      throw new Error("Firebase no está configurado. Revisa config.js.");
+    }
+    username = validateUsername(username);
+    validatePassword(password);
     
     const email = `${username.toLowerCase()}@email.com`;
 
     try {
-      // 1. Check if username document already exists in Firestore (to prevent duplicates)
       const q = query(collection(db, "users"), where("usernameLower", "==", username.toLowerCase()));
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
-        throw new Error("Username is already taken.");
+        throw new Error("Ese nombre ya está en uso.");
       }
 
-      // 2. Create auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 3. Create Firestore record
       const userData = {
         uid: user.uid,
         username: username,
@@ -81,56 +108,64 @@ export const authSystem = {
         totalWins: 0,
         friends: [],
         pp: 1000,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        lastSeen: Date.now()
       };
 
       await setDoc(doc(db, "users", user.uid), userData);
       return userData;
     } catch (error) {
       console.error("Registration error:", error);
-      throw error;
+      throw new Error(mapAuthError(error));
     }
   },
 
   // Login user
   async login(username, password) {
-    if (!this.checkFirebaseReady()) return null;
+    if (!isFirebaseConfigured) {
+      throw new Error("Firebase no está configurado. Revisa config.js.");
+    }
+    username = (username || "").trim();
+    if (username.length < 3) throw new Error("El usuario debe tener al menos 3 caracteres.");
+    validatePassword(password);
 
-    username = username.trim();
     const email = `${username.toLowerCase()}@email.com`;
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Get user document
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
-        return userDoc.data();
-      } else {
-        // Fallback: If auth exists but no Firestore doc, recreate it
-        const userData = {
-          uid: user.uid,
-          username: username,
-          usernameLower: username.toLowerCase(),
-          highScoreScoreMode: 0,
-          winsScoreMode: 0,
-          lossesScoreMode: 0,
-          gamesPlayedScoreMode: 0,
-          winsSuddenDeath: 0,
-          lossesSuddenDeath: 0,
-          gamesPlayedSuddenDeath: 0,
-          totalWins: 0,
-          friends: [],
-          pp: 1000,
-          createdAt: Date.now()
-        };
-        await setDoc(doc(db, "users", user.uid), userData);
-        return userData;
+        const data = userDoc.data();
+        try {
+          await updateDoc(doc(db, "users", user.uid), { lastSeen: Date.now() });
+        } catch (_) { /* ignore heartbeat write */ }
+        return { ...data, lastSeen: Date.now() };
       }
+
+      const userData = {
+        uid: user.uid,
+        username: username,
+        usernameLower: username.toLowerCase(),
+        highScoreScoreMode: 0,
+        winsScoreMode: 0,
+        lossesScoreMode: 0,
+        gamesPlayedScoreMode: 0,
+        winsSuddenDeath: 0,
+        lossesSuddenDeath: 0,
+        gamesPlayedSuddenDeath: 0,
+        totalWins: 0,
+        friends: [],
+        pp: 1000,
+        createdAt: Date.now(),
+        lastSeen: Date.now()
+      };
+      await setDoc(doc(db, "users", user.uid), userData);
+      return userData;
     } catch (error) {
       console.error("Login error:", error);
-      throw error;
+      throw new Error(mapAuthError(error));
     }
   },
 
@@ -233,14 +268,37 @@ export const authSystem = {
       const q = query(
         collection(db, "users"),
         orderBy("pp", "desc"),
-        limit(10)
+        limit(12)
       );
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => doc.data());
+      return querySnapshot.docs.map(docSnap => docSnap.data());
     } catch (err) {
       console.error("Error getting top players:", err);
       return [];
     }
+  },
+
+  async getUserRank(pp) {
+    if (!isFirebaseConfigured) return null;
+    try {
+      const q = query(collection(db, "users"), where("pp", ">", pp || 1000));
+      const snap = await getCountFromServer(q);
+      return snap.data().count + 1;
+    } catch (err) {
+      console.error("Error getting user rank:", err);
+      return null;
+    }
+  },
+
+  async getLeaderboard(userData) {
+    const players = await this.getTopPlayers();
+    let rank = players.findIndex((p) =>
+      (userData?.uid && p.uid === userData.uid) ||
+      (userData?.username && p.username === userData.username)
+    );
+    if (rank >= 0) rank += 1;
+    else rank = await this.getUserRank(userData?.pp || 1000);
+    return { players, rank };
   },
 
   // Get full details of all friends (for reading their PPs)
