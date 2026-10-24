@@ -509,7 +509,10 @@ function setupLobbyHandlers() {
 }
 
 function setupAccountHandlers() {
-  lobbyUI.accountToggle?.addEventListener("click", () => {
+  lobbyUI.accountToggle?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!lobbyUI.accountCard) return;
     const open = lobbyUI.accountCard.classList.toggle("open");
     lobbyUI.accountToggle.setAttribute("aria-expanded", String(open));
     audioSystem.playTap();

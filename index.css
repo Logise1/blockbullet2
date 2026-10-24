@@ -474,6 +474,8 @@ button, input {
 .account-card {
   margin-bottom: 12px;
   overflow: hidden;
+  flex-shrink: 0;
+  min-height: 76px;
 }
 
 .account-main {
@@ -481,12 +483,14 @@ button, input {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
+  padding: 14px 16px;
+  min-height: 76px;
   background: transparent;
   border: 0;
   color: inherit;
   text-align: left;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .avatar {
@@ -551,20 +555,17 @@ button, input {
 .account-card.open .account-chevron { transform: rotate(180deg); }
 
 .account-sheet {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.4s var(--ease);
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s var(--ease);
 }
 
-.account-card.open .account-sheet { grid-template-rows: 1fr; }
+.account-card.open .account-sheet {
+  max-height: 260px;
+}
 
 .account-sheet-inner {
-  overflow: hidden;
-  padding: 0 16px;
-}
-
-.account-card.open .account-sheet-inner {
-  padding-bottom: 16px;
+  padding: 0 16px 16px;
 }
 
 .account-details {
@@ -687,20 +688,23 @@ button, input {
 .loss-tag { color: var(--p2); background: rgba(227, 138, 160, 0.1); }
 
 .lobby-play-modes {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  flex-shrink: 0;
 }
 
 .play-mode-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   gap: 4px;
   width: 100%;
-  text-align: left;
-  padding: 18px 18px;
-  border-radius: var(--radius-xl);
+  text-align: center;
+  min-height: 78px;
+  padding: 12px 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface);
   color: inherit;
@@ -727,14 +731,14 @@ button, input {
 .solo-mode-card .mode-card-kicker { color: var(--gold); }
 
 .mode-card-title {
-  font-size: 1.05rem;
+  font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .mode-card-desc {
-  font-size: 0.8rem;
-  color: var(--text-2);
+  display: none;
 }
 
 /* ==========================================================================
@@ -960,8 +964,8 @@ button, input {
   letter-spacing: -0.04em;
 }
 
-#hud-p1 .hud-score-val { color: var(--p1); }
-#hud-p2 .hud-score-val { color: var(--p2); }
+#hud-p1 .hud-score-val { color: var(--p1); text-shadow: 0 0 16px rgba(62, 224, 255, 0.35); }
+#hud-p2 .hud-score-val { color: var(--p2); text-shadow: 0 0 16px rgba(255, 77, 157, 0.3); }
 
 .hud-streak-badge {
   font-size: 0.68rem;
@@ -1539,7 +1543,7 @@ button, input {
 }
 
 .invite-btn-decline { background: var(--bg); color: var(--text-2); }
-.invite-btn-accept { background: var(--text); color: #0b0b0c; }
+.invite-btn-accept { background: linear-gradient(135deg, #5ef0ff 0%, #3b8bff 100%); color: #061018; }
 
 .pwa-install-banner {
   position: fixed;
@@ -1568,11 +1572,15 @@ button, input {
 .pwa-install-actions { display: flex; justify-content: flex-end; gap: 8px; }
 #pwa-install-accept, #pwa-install-decline { width: auto; padding: 8px 14px; font-size: 0.8rem; }
 
+#lobby-view {
+  padding-top: 56px;
+}
+
 .fullscreen-toggle {
-  position: fixed;
-  top: max(10px, env(safe-area-inset-top));
+  position: absolute;
+  top: 10px;
   right: 12px;
-  z-index: 11000;
+  z-index: 30;
   width: 40px;
   height: 40px;
   border: 1px solid var(--border-strong);
