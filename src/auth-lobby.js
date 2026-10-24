@@ -108,6 +108,8 @@ export const authSystem = {
         totalWins: 0,
         friends: [],
         pp: 1000,
+        highScoreSolo: 0,
+        gamesPlayedSolo: 0,
         createdAt: Date.now(),
         lastSeen: Date.now()
       };
@@ -158,6 +160,8 @@ export const authSystem = {
         totalWins: 0,
         friends: [],
         pp: 1000,
+        highScoreSolo: 0,
+        gamesPlayedSolo: 0,
         createdAt: Date.now(),
         lastSeen: Date.now()
       };
@@ -212,9 +216,17 @@ export const authSystem = {
         } else {
           updates.lossesSuddenDeath = (data.lossesSuddenDeath || 0) + 1;
         }
+      } else if (mode === "solo") {
+        updates.gamesPlayedSolo = (data.gamesPlayedSolo || 0) + 1;
+        if (score !== null && score > (data.highScoreSolo || 0)) {
+          updates.highScoreSolo = score;
+        }
+        if (score !== null && score > (data.highScoreScoreMode || 0)) {
+          updates.highScoreScoreMode = score;
+        }
       }
 
-      if (newPP !== null && newPP !== undefined) {
+      if (newPP !== null && newPP !== undefined && mode !== "solo") {
         updates.pp = newPP;
       }
 

@@ -13,6 +13,23 @@ function getAudioContext() {
   return audioCtx;
 }
 
+function vibrate(pattern) {
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch (_) { /* haptic not available */ }
+}
+
+export const haptics = {
+  tap() { vibrate(12); },
+  place() { vibrate(18); },
+  clear() { vibrate([18, 24, 32]); },
+  combo() { vibrate([12, 18, 20, 18, 42]); },
+  error() { vibrate([36, 24, 36]); },
+  win() { vibrate([16, 28, 18, 28, 70]); },
+  lose() { vibrate([70, 36, 70]); },
+  drag() { vibrate(8); }
+};
+
 export const audioSystem = {
   toggleSound() {
     soundEnabled = !soundEnabled;
@@ -24,6 +41,7 @@ export const audioSystem = {
   },
 
   playTap() {
+    haptics.tap();
     if (!soundEnabled) return;
     try {
       const ctx = getAudioContext();
@@ -48,6 +66,7 @@ export const audioSystem = {
   },
 
   playPlace() {
+    haptics.place();
     if (!soundEnabled) return;
     try {
       const ctx = getAudioContext();
@@ -72,6 +91,7 @@ export const audioSystem = {
   },
 
   playClear() {
+    haptics.clear();
     if (!soundEnabled) return;
     try {
       const ctx = getAudioContext();
@@ -102,6 +122,7 @@ export const audioSystem = {
   },
 
   playCombo(multiplier) {
+    haptics.combo();
     if (!soundEnabled) return;
     try {
       const ctx = getAudioContext();
@@ -134,6 +155,8 @@ export const audioSystem = {
   },
 
   playGameOver(isWinner) {
+    if (isWinner) haptics.win();
+    else haptics.lose();
     if (!soundEnabled) return;
     try {
       const ctx = getAudioContext();
@@ -186,6 +209,7 @@ export const audioSystem = {
   },
 
   playError() {
+    haptics.error();
     if (!soundEnabled) return;
     try {
       const ctx = getAudioContext();

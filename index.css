@@ -3,22 +3,22 @@
    ========================================================================== */
 
 :root {
-  --bg: #0b0b0c;
-  --bg-elevated: #121214;
-  --surface: #161618;
-  --surface-2: #1c1c1f;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --text: #f4f4f5;
-  --text-2: #a1a1aa;
-  --text-3: #71717a;
-  --accent: #6b8afd;
-  --accent-soft: rgba(107, 138, 253, 0.14);
-  --p1: #6b8afd;
-  --p2: #e38aa0;
-  --success: #3dd68c;
-  --danger: #ff6b6b;
-  --gold: #e8c36a;
+  --bg: #0b1220;
+  --bg-elevated: #121b30;
+  --surface: #16233a;
+  --surface-2: #1d2d4d;
+  --border: rgba(80, 190, 255, 0.16);
+  --border-strong: rgba(80, 220, 255, 0.32);
+  --text: #f4fbff;
+  --text-2: #9ec4e8;
+  --text-3: #6d8fb3;
+  --accent: #3ee0ff;
+  --accent-soft: rgba(62, 224, 255, 0.18);
+  --p1: #3ee0ff;
+  --p2: #ff4d9d;
+  --success: #3dff9a;
+  --danger: #ff5d6c;
+  --gold: #ffd24d;
   --p1-cyan: var(--p1);
   --p1-cyan-glow: var(--accent-soft);
   --p2-pink: var(--p2);
@@ -69,8 +69,9 @@ body::before {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(107, 138, 253, 0.12), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(227, 138, 160, 0.06), transparent 50%);
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(62, 224, 255, 0.28), transparent 58%),
+    radial-gradient(ellipse 60% 45% at 100% 100%, rgba(255, 77, 157, 0.18), transparent 52%),
+    radial-gradient(ellipse 40% 35% at 0% 80%, rgba(255, 210, 77, 0.08), transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
@@ -416,11 +417,12 @@ button, input {
 .btn:disabled { opacity: 0.55; pointer-events: none; }
 
 .primary-btn {
-  background: var(--text);
-  color: #0b0b0c;
+  background: linear-gradient(135deg, #5ef0ff 0%, #3b8bff 100%);
+  color: #061018;
+  box-shadow: 0 8px 22px rgba(62, 224, 255, 0.28);
 }
 
-.primary-btn:hover { background: #ffffff; }
+.primary-btn:hover { filter: brightness(1.08); }
 
 .outline-btn {
   background: transparent;
@@ -722,6 +724,7 @@ button, input {
 
 .score-mode-card .mode-card-kicker { color: var(--p1); }
 .sudden-mode-card .mode-card-kicker { color: var(--p2); }
+.solo-mode-card .mode-card-kicker { color: var(--gold); }
 
 .mode-card-title {
   font-size: 1.05rem;
@@ -919,6 +922,14 @@ button, input {
    ========================================================================== */
 
 #game-view { padding: 12px 12px 16px; }
+
+#game-view.solo-mode .game-hud {
+  grid-template-columns: 1.2fr auto 1.2fr;
+}
+
+#game-view.solo-mode .reactions-panel {
+  display: none;
+}
 
 .game-hud {
   display: grid;
@@ -1556,6 +1567,41 @@ button, input {
 .pwa-install-text span { font-size: 0.75rem; color: var(--text-2); }
 .pwa-install-actions { display: flex; justify-content: flex-end; gap: 8px; }
 #pwa-install-accept, #pwa-install-decline { width: auto; padding: 8px 14px; font-size: 0.8rem; }
+
+.fullscreen-toggle {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  right: 12px;
+  z-index: 11000;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--accent);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.fullscreen-toggle:active { transform: scale(0.94); }
+.fullscreen-toggle svg { width: 18px; height: 18px; }
+.fullscreen-toggle .fs-exit { display: none; }
+html:fullscreen .fullscreen-toggle .fs-enter,
+html:-webkit-full-screen .fullscreen-toggle .fs-enter { display: none; }
+html:fullscreen .fullscreen-toggle .fs-exit,
+html:-webkit-full-screen .fullscreen-toggle .fs-exit { display: block; }
+
+.modal.solo-over .score-comparison { justify-content: center; }
+.modal.solo-over .vs-text,
+.modal.solo-over .score-card:last-child { display: none; }
+
+.surface-card {
+  box-shadow: 0 10px 28px rgba(8, 20, 40, 0.35);
+}
 
 /* Compat: old glass-card class used by JS-created nodes */
 .glass-card { }

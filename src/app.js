@@ -1,6 +1,6 @@
 import { isFirebaseConfigured } from "./firebase-config.js";
 import { authSystem, lobbySystem, inviteSystem, mapAuthError } from "./auth-lobby.js";
-import { audioSystem } from "./audio.js";
+import { audioSystem, haptics } from "./audio.js";
 import { 
   createBoard, 
   canPlacePiece, 
@@ -37,7 +37,8 @@ const gameState = {
   p2Pieces: [null, null, null],
   turn: "", // Username of active player
   playerRole: "", // "host" (P1) or "guest" (P2)
-  mode: "score", // "score" or "sudden_death"
+  mode: "score", // "score", "sudden_death" or "solo"
+  isSolo: false,
   isGameOver: false,
   rematchRequested: false,
   opponentRematchRequested: false
@@ -112,6 +113,9 @@ const lobbyUI = {
   lossesSudden: document.getElementById("stat-losses-sudden"),
   playModeScoreBtn: document.getElementById("play-mode-score-btn"),
   playModeSuddenBtn: document.getElementById("play-mode-sudden-btn"),
+  playModeSoloBtn: document.getElementById("play-mode-solo-btn"),
+  playedSolo: document.getElementById("stat-played-solo"),
+  soloBest: document.getElementById("stat-solo-best"),
   friendsBackBtn: document.getElementById("friends-back-btn"),
   friendsSelectedMode: document.getElementById("friends-selected-mode"),
   logoutBtn: document.getElementById("lobby-logout-btn"),
@@ -180,6 +184,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupLobbyHandlers();
   setupAccountHandlers();
   setupRankingHandlers();
+  setupFullscreen();
   setupWaitingHandlers();
   setupGameControls();
   setupGameOverHandlers();
@@ -414,6 +419,13 @@ let selectedMode = "score"; // "score" or "sudden_death"
 
 function setupLobbyHandlers() {
   // Mode selection and transition to friends view
+  if (lobbyUI.playModeSoloBtn) {
+    lobbyUI.playModeSoloBtn.addEventListener("click", () => {
+      audioSystem.playTap();
+      startSoloGame();
+    });
+  }
+
   if (lobbyUI.playModeScoreBtn) {
     lobbyUI.playModeScoreBtn.addEventListener("click", () => {
       selectedMode = "score";
@@ -504,6 +516,94 @@ function setupAccountHandlers() {
   });
 }
 
+function startSoloGame() {
+  if (!currentUser) return;
+  views.gameoverModal.classList.add("hidden");
+  views.gameoverModal.classList.remove("solo-over");
+
+  gameState.board = createBoard();
+  gameState.p1Username = currentUser.username;
+  gameState.p2Username = "Récord";
+  gameState.p1Score = 0;
+  gameState.p2Score = currentUser.highScoreSolo || 0;
+  gameState.p1Streak = 0;
+  gameState.p2Streak = 0;
+  gameState.p1Pieces = getRandomPieces();
+  gameState.p2Pieces = [null, null, null];
+  gameState.turn = currentUser.username;
+  gameState.playerRole = "host";
+  gameState.mode = "solo";
+  gameState.isSolo = true;
+  gameState.isGameOver = false;
+  gameState.rematchRequested = false;
+  gameState.opponentRematchRequested = false;
+
+  if (gameoverUI.rematchBtn) {
+    gameoverUI.rematchBtn.disabled = false;
+    gameoverUI.rematchBtn.textContent = "Jugar de nuevo";
+  }
+  if (gameoverUI.rematchStatus) gameoverUI.rematchStatus.textContent = "";
+
+  switchView("game-view");
+  renderBoard();
+  renderHUD();
+  renderPieces();
+}
+
+function isFullscreenActive() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+async function enterFullscreen() {
+  const el = document.documentElement;
+  try {
+    if (el.requestFullscreen) await el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } catch (_) { /* browser blocked auto fullscreen */ }
+}
+
+async function exitFullscreen() {
+  try {
+    if (document.exitFullscreen) await document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  } catch (_) { /* ignore */ }
+}
+
+function setupFullscreen() {
+  const btn = document.getElementById("fullscreen-toggle");
+  if (!btn) return;
+
+  if (window.matchMedia("(display-mode: standalone)").matches) {
+    btn.classList.add("hidden");
+    return;
+  }
+
+  const autoEnter = () => {
+    if (sessionStorage.getItem("bb_fs_opt_out") === "1") return;
+    if (window.matchMedia("(display-mode: standalone)").matches) return;
+    enterFullscreen();
+  };
+
+  const onFirstPointer = (event) => {
+    if (event.target.closest("#fullscreen-toggle")) return;
+    document.removeEventListener("pointerdown", onFirstPointer);
+    autoEnter();
+  };
+  document.addEventListener("pointerdown", onFirstPointer);
+
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    audioSystem.playTap();
+    if (isFullscreenActive()) {
+      sessionStorage.setItem("bb_fs_opt_out", "1");
+      exitFullscreen();
+    } else {
+      sessionStorage.removeItem("bb_fs_opt_out");
+      enterFullscreen();
+    }
+  });
+}
+
 function updateLobbyProfileUI(userData) {
   const username = userData.username || "Jugador";
   const pp = userData.pp || 1000;
@@ -543,6 +643,8 @@ function updateLobbyProfileUI(userData) {
   lobbyUI.playedSudden.textContent = userData.gamesPlayedSuddenDeath || 0;
   lobbyUI.winsSudden.textContent = userData.winsSuddenDeath || 0;
   lobbyUI.lossesSudden.textContent = userData.lossesSuddenDeath || 0;
+  if (lobbyUI.playedSolo) lobbyUI.playedSolo.textContent = userData.gamesPlayedSolo || 0;
+  if (lobbyUI.soloBest) lobbyUI.soloBest.textContent = userData.highScoreSolo || 0;
 
   const soundOn = audioSystem.isSoundEnabled();
   if (lobbyUI.soundBtn) lobbyUI.soundBtn.classList.toggle("muted", !soundOn);
@@ -717,6 +819,7 @@ function setupLocalGameState(payload) {
   gameState.p2Pieces = payload.p2Pieces;
   gameState.turn = payload.turn;
   gameState.mode = payload.mode;
+  gameState.isSolo = false;
   gameState.isGameOver = false;
   gameState.rematchRequested = false;
   gameState.opponentRematchRequested = false;
@@ -891,8 +994,20 @@ function renderHUD() {
     document.getElementById("game-view").classList.remove("my-turn-active");
   }
 
-  // Mode badge
+  if (gameState.isSolo) {
+    gameUI.p1Name.textContent = currentUser?.username || "Tú";
+    gameUI.p2Name.textContent = "Récord";
+    gameUI.p2Score.textContent = currentUser?.highScoreSolo || 0;
+    gameUI.p2Streak.classList.add("hidden");
+    gameUI.turnIndicator.textContent = "Solo";
+    gameUI.turnIndicator.className = "turn-badge your-turn";
+    gameUI.modeBadge.textContent = "Solo";
+    document.getElementById("game-view")?.classList.add("my-turn-active", "solo-mode");
+    return;
+  }
+
   gameUI.modeBadge.textContent = gameState.mode === "score" ? "Puntaje" : "Muerte Súbita";
+  document.getElementById("game-view")?.classList.remove("solo-mode");
 }
 
 function renderPieces() {
@@ -1045,6 +1160,7 @@ function onDragStart(e) {
   
   if (!piece) return;
 
+  haptics.drag();
   dragInfo.isDragging = true;
   dragInfo.slotIndex = slotIndex;
   dragInfo.piece = piece;
@@ -1292,6 +1408,16 @@ async function onDragEnd(e) {
       audioSystem.playPlace();
     }
 
+    if (gameState.isSolo) {
+      gameState.turn = currentUser.username;
+      renderBoard();
+      renderHUD();
+      renderPieces();
+      checkLocalMoveValidity();
+      clearBoardHighlights();
+      return;
+    }
+
     // Switch turn control
     const nextTurn = (gameState.playerRole === "host") ? gameState.p2Username : gameState.p1Username;
     gameState.turn = nextTurn;
@@ -1304,21 +1430,23 @@ async function onDragEnd(e) {
     // 5. Send state updates via websocket
     const myUpdatedPieces = (gameState.playerRole === "host") ? gameState.p1Pieces : gameState.p2Pieces;
     
-    relay.send({
-      action: "game_move",
-      board: gameState.board,
-      scores: {
-        host: gameState.p1Score,
-        guest: gameState.p2Score
-      },
-      streaks: {
-        host: gameState.p1Streak,
-        guest: gameState.p2Streak
-      },
-      clears: clears.count > 0 ? clears : null,
-      opponentPieces: myUpdatedPieces,
-      nextTurn: nextTurn
-    });
+    if (relay) {
+      relay.send({
+        action: "game_move",
+        board: gameState.board,
+        scores: {
+          host: gameState.p1Score,
+          guest: gameState.p2Score
+        },
+        streaks: {
+          host: gameState.p1Streak,
+          guest: gameState.p2Streak
+        },
+        clears: clears.count > 0 ? clears : null,
+        opponentPieces: myUpdatedPieces,
+        nextTurn: nextTurn
+      });
+    }
 
     // Check if the game is over due to the opponent having no moves.
     // However, the opponent checks this themselves when they receive their turn message.
@@ -1345,6 +1473,11 @@ function checkLocalMoveValidity() {
   if (!hasMoves) {
     // Game over for us!
     gameState.isGameOver = true;
+
+    if (gameState.isSolo) {
+      triggerGameOver(currentUser.username, currentUser.username, "solo");
+      return;
+    }
     
     // Determine winner based on game mode
     let winner = "";
@@ -1371,8 +1504,7 @@ function checkLocalMoveValidity() {
       reason: "no_moves"
     };
 
-    // Send game over command
-    relay.send(overPayload);
+    if (relay) relay.send(overPayload);
 
     // Apply locally
     triggerGameOver(winner, loser, "no_moves");
@@ -1398,6 +1530,37 @@ async function triggerGameOver(winner, loser, reason) {
   if (gameoverUI.pp) {
     gameoverUI.pp.textContent = "";
     gameoverUI.pp.className = "outcome-pp";
+  }
+
+  views.gameoverModal.classList.toggle("solo-over", gameState.isSolo);
+
+  if (gameState.isSolo) {
+    const best = currentUser.highScoreSolo || 0;
+    const isRecord = gameState.p1Score > best;
+    gameoverUI.title.textContent = isRecord ? "Nuevo récord" : "Fin de partida";
+    gameoverUI.title.style.color = isRecord ? "var(--gold)" : "var(--p1)";
+    gameoverUI.title.style.textShadow = "none";
+    gameoverUI.reason.textContent = "Te quedaste sin movimientos.";
+    gameoverUI.p1Name.textContent = "Puntuación";
+    gameoverUI.p1Score.textContent = gameState.p1Score;
+    gameoverUI.p2Name.textContent = "Récord";
+    gameoverUI.p2Score.textContent = Math.max(best, gameState.p1Score);
+    if (gameoverUI.pp) {
+      gameoverUI.pp.textContent = isRecord ? `Superaste ${best} puntos` : `Récord actual: ${best}`;
+      gameoverUI.pp.className = `outcome-pp ${isRecord ? "up" : ""}`;
+    }
+    audioSystem.playGameOver(isRecord || gameState.p1Score > 0);
+    try {
+      await authSystem.updateStats(currentUser.uid, "solo", false, gameState.p1Score, null);
+      const updatedStats = await authSystem.getUserStats(currentUser.uid);
+      if (updatedStats) {
+        currentUser = updatedStats;
+        updateLobbyProfileUI(updatedStats);
+      }
+    } catch (error) {
+      console.error("Failed to write solo statistics:", error);
+    }
+    return;
   }
 
   if (isDraw) {
@@ -1496,12 +1659,14 @@ function handleOpponentDisconnected(user) {
     const winner = currentUser.username;
     const loser = user;
     
-    relay.send({
-      action: "game_over",
-      winner: winner,
-      loser: loser,
-      reason: "disconnected"
-    });
+    if (relay) {
+      relay.send({
+        action: "game_over",
+        winner: winner,
+        loser: loser,
+        reason: "disconnected"
+      });
+    }
     
     triggerGameOver(winner, loser, "disconnected");
   } else if (views.waiting.classList.contains("active")) {
@@ -1516,6 +1681,13 @@ function handleOpponentDisconnected(user) {
 // Rematch loop
 function setupGameOverHandlers() {
   gameoverUI.rematchBtn.addEventListener("click", () => {
+    if (gameState.isSolo) {
+      audioSystem.playTap();
+      views.gameoverModal.classList.add("hidden");
+      startSoloGame();
+      return;
+    }
+
     if (gameState.rematchRequested) return;
     
     gameState.rematchRequested = true;
@@ -1550,6 +1722,9 @@ function setupGameOverHandlers() {
       activeLobby = null;
     }
 
+    gameState.isSolo = false;
+    document.getElementById("game-view")?.classList.remove("solo-mode");
+    views.gameoverModal.classList.remove("solo-over");
     switchView("lobby-view");
   });
 }

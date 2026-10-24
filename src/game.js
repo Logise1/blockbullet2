@@ -4,56 +4,56 @@
 // grid: 2D array representation. 1 = block, 0 = empty.
 export const SHAPES = [
   // 1x1 Single
-  { id: '1x1', grid: [[1]], color: '#8ea4f8' },
+  { id: '1x1', grid: [[1]], color: '#3ee0ff' },
   
   // 1x2 Dominoes
-  { id: '1x2_v', grid: [[1], [1]], color: '#8ea4f8' },
-  { id: '1x2_h', grid: [[1, 1]], color: '#8ea4f8' },
+  { id: '1x2_v', grid: [[1], [1]], color: '#3ee0ff' },
+  { id: '1x2_h', grid: [[1, 1]], color: '#3ee0ff' },
   
   // 1x3 Straight
-  { id: '1x3_v', grid: [[1], [1], [1]], color: '#6b8afd' },
-  { id: '1x3_h', grid: [[1, 1, 1]], color: '#6b8afd' },
+  { id: '1x3_v', grid: [[1], [1], [1]], color: '#4da3ff' },
+  { id: '1x3_h', grid: [[1, 1, 1]], color: '#4da3ff' },
   
   // 1x4 Straight
-  { id: '1x4_v', grid: [[1], [1], [1], [1]], color: '#5b74d6' },
-  { id: '1x4_h', grid: [[1, 1, 1, 1]], color: '#5b74d6' },
+  { id: '1x4_v', grid: [[1], [1], [1], [1]], color: '#3b6bff' },
+  { id: '1x4_h', grid: [[1, 1, 1, 1]], color: '#3b6bff' },
   
   // 1x5 Straight (tricky!)
-  { id: '1x5_v', grid: [[1], [1], [1], [1], [1]], color: '#4a5fb8' },
-  { id: '1x5_h', grid: [[1, 1, 1, 1, 1]], color: '#4a5fb8' },
+  { id: '1x5_v', grid: [[1], [1], [1], [1], [1]], color: '#2563eb' },
+  { id: '1x5_h', grid: [[1, 1, 1, 1, 1]], color: '#2563eb' },
   
   // 2x2 Square
-  { id: '2x2', grid: [[1, 1], [1, 1]], color: '#e8c36a' },
+  { id: '2x2', grid: [[1, 1], [1, 1]], color: '#ffd24d' },
   
   // 3x3 Square (very tricky!)
-  { id: '3x3', grid: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: '#c9a24d' },
+  { id: '3x3', grid: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: '#f5b400' },
   
   // L-shapes (2x2)
-  { id: 'L2_0', grid: [[1, 0], [1, 1]], color: '#e38aa0' },
-  { id: 'L2_1', grid: [[1, 1], [1, 0]], color: '#e38aa0' },
-  { id: 'L2_2', grid: [[1, 1], [0, 1]], color: '#e38aa0' },
-  { id: 'L2_3', grid: [[0, 1], [1, 1]], color: '#e38aa0' },
+  { id: 'L2_0', grid: [[1, 0], [1, 1]], color: '#ff4d9d' },
+  { id: 'L2_1', grid: [[1, 1], [1, 0]], color: '#ff4d9d' },
+  { id: 'L2_2', grid: [[1, 1], [0, 1]], color: '#ff4d9d' },
+  { id: 'L2_3', grid: [[0, 1], [1, 1]], color: '#ff4d9d' },
 
   // L-shapes (3x3)
-  { id: 'L3_0', grid: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], color: '#d46b7a' },
-  { id: 'L3_1', grid: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], color: '#d46b7a' },
-  { id: 'L3_2', grid: [[1, 1, 1], [0, 0, 1], [0, 0, 1]], color: '#d46b7a' },
-  { id: 'L3_3', grid: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], color: '#d46b7a' },
+  { id: 'L3_0', grid: [[1, 0, 0], [1, 0, 0], [1, 1, 1]], color: '#ff5d6c' },
+  { id: 'L3_1', grid: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], color: '#ff5d6c' },
+  { id: 'L3_2', grid: [[1, 1, 1], [0, 0, 1], [0, 0, 1]], color: '#ff5d6c' },
+  { id: 'L3_3', grid: [[0, 0, 1], [0, 0, 1], [1, 1, 1]], color: '#ff5d6c' },
 
   // T-shapes (3x3)
-  { id: 'T3_0', grid: [[1, 1, 1], [0, 1, 0], [0, 1, 0]], color: '#b48ad6' },
-  { id: 'T3_1', grid: [[0, 0, 1], [1, 1, 1], [0, 0, 1]], color: '#b48ad6' },
-  { id: 'T3_2', grid: [[0, 1, 0], [0, 1, 0], [1, 1, 1]], color: '#b48ad6' },
-  { id: 'T3_3', grid: [[1, 0, 0], [1, 1, 1], [1, 0, 0]], color: '#b48ad6' },
+  { id: 'T3_0', grid: [[1, 1, 1], [0, 1, 0], [0, 1, 0]], color: '#c084fc' },
+  { id: 'T3_1', grid: [[0, 0, 1], [1, 1, 1], [0, 0, 1]], color: '#c084fc' },
+  { id: 'T3_2', grid: [[0, 1, 0], [0, 1, 0], [1, 1, 1]], color: '#c084fc' },
+  { id: 'T3_3', grid: [[1, 0, 0], [1, 1, 1], [1, 0, 0]], color: '#c084fc' },
 
   // Corner/V-shape 3x3
-  { id: 'C3_0', grid: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], color: '#e0a06a' },
+  { id: 'C3_0', grid: [[1, 1, 1], [1, 0, 0], [1, 0, 0]], color: '#ff8a3d' },
 
   // Z and S shapes (2x3 or 3x2)
-  { id: 'Z_h', grid: [[1, 1, 0], [0, 1, 1]], color: '#6ec89a' },
-  { id: 'Z_v', grid: [[0, 1], [1, 1], [1, 0]], color: '#6ec89a' },
-  { id: 'S_h', grid: [[0, 1, 1], [1, 1, 0]], color: '#5bb88c' },
-  { id: 'S_v', grid: [[1, 0], [1, 1], [0, 1]], color: '#5bb88c' }
+  { id: 'Z_h', grid: [[1, 1, 0], [0, 1, 1]], color: '#3dff9a' },
+  { id: 'Z_v', grid: [[0, 1], [1, 1], [1, 0]], color: '#3dff9a' },
+  { id: 'S_h', grid: [[0, 1, 1], [1, 1, 0]], color: '#2ee59a' },
+  { id: 'S_v', grid: [[1, 0], [1, 1], [0, 1]], color: '#2ee59a' }
 ];
 
 // Initialize an empty 8x8 board
